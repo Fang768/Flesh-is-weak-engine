@@ -12,9 +12,10 @@
   近战伤害**无视一半护甲**（向上取整）。
 * 瞄准射击：花掉本回合全部其他动作、ROF 限 1、判定 **−8**；打头「穿透护甲后伤害翻倍」，
   打腿「断腿（严重伤势）」，打手中物「东西脱手」（书内页 174）。
-* 装填 = 一个其他动作（书内页 174）。
+* 装填 = 一个其他动作，**完全重新装填**（补满整个弹匣），不能混装弹种（书内页 174 / :14543-14545）。
+  单发攻击扣 1 发、全自动扣 10 发，命中与否都扣；弓/十字弩永不装填也不耗弹（:14898-14899）。
 
-没有建模的：弹药计数、延迟动作的具体时机、中毒与疾病的细化流程、爆炸对地形的破坏。
+没有建模的：延迟动作的具体时机、中毒与疾病的细化流程、爆炸对地形的破坏。
 """
 
 from __future__ import annotations
@@ -142,6 +143,35 @@ _MAG_DEFAULT = {"手枪": 8, "冲锋枪": 30, "霰弹枪": 8, "突击步枪": 30
 def _mag_of(weapon: str | None) -> int:
     """这件武器的默认弹匣容量。"""
     return _MAG_DEFAULT.get(weapon or "", 8)
+
+
+#: 不需要装填的武器：弓/十字弩「拈弓搭箭是攻击动作的一部分」，永远不用重装填
+#: （full.txt:14898-14899）。所以它们的弹药不消耗、也不会打空。
+NO_RELOAD_WEAPONS = {"弓"}
+
+
+def _spend_round(me: "Combatant", weapon: str | None) -> int:
+    """打掉一发子弹，返回扣完还剩几发。
+
+    还没开始计数（`ammo == -1`）就先按满弹匣起算，这样「开打时枪是满的」是免费的。
+    弓不扣弹（full.txt:14898-14899）。
+    """
+    if weapon in NO_RELOAD_WEAPONS:
+        return me.rounds_left(weapon)
+    if me.ammo < 0:
+        me.ammo = me.mag or _mag_of(weapon)
+    me.ammo = max(0, me.ammo - 1)
+    return me.ammo
+
+
+def _out_of_ammo(me: "Combatant", weapon: str | None) -> str | None:
+    """弹匣空了就返回一句拒绝文案（不消耗动作），否则 None。"""
+    if weapon in NO_RELOAD_WEAPONS:
+        return None
+    if me.rounds_left(weapon) > 0:
+        return None
+    return (f"{me.name} 的{weapon or '武器'}没子弹了（0 发）。"
+            "先花一个其他动作装填（full.txt:14543-14545）。")
 
 
 #: 全自动命中数上限（书内页 173）：冲锋枪 3、突击步枪 4。表在地图模块里维护
@@ -554,10 +584,10 @@ def _save(conn, combat: Combat) -> None:
     for c in combat.combatants:
         conn.execute(
             "UPDATE combatants SET hp = ?, max_hp = ?, sp = ?, sp_wear = ?, dead = ?,"
-            " initiative = ?, script = ?, stat = ?, escaped = ?, actor_id = ?, fate = ?,"
-            " withdraw_at = ?, x = ?, y = ? WHERE group_id = ? AND owner_qq = ?",
+            " initiative = ?, script = ?, damage = ?, stat = ?, escaped = ?, actor_id = ?,"
+            " fate = ?, withdraw_at = ?, x = ?, y = ? WHERE group_id = ? AND owner_qq = ?",
             (c.hp, c.max_hp, c.sp, c.sp_wear, int(c.dead), c.initiative,
-             json.dumps(c.script, ensure_ascii=False), _stat_json(c),
+             json.dumps(c.script, ensure_ascii=False), c.damage, _stat_json(c),
              int(c.escaped),
              c.actor_id, c.fate, c.withdraw_at, c.x, c.y,
              combat.group_id, c.owner_qq),
@@ -1987,13 +2017,19 @@ def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
             if me.x < 0 or me.y < 0:
                 lines.append("你还没站到地图上。")
                 return "\n".join(lines)
-            weapon = _weapon_of(me) or DEFAULT_WEAPON
-            dv = game.dv((me.x, me.y), (cover.x, cover.y), weapon)
+            cover_weapon = _weapon_of(me) or DEFAULT_WEAPON
+            dv = game.dv((me.x, me.y), (cover.x, cover.y), cover_weapon)
             if dv is None:
-                return (f"超出{weapon}的射程：离{cover.name}有 "
+                return (f"超出{cover_weapon}的射程：离{cover.name}有 "
                         f"{game.meters((me.x, me.y), (cover.x, cover.y))} 米，打不到。")
+            # 弹药：打掩体也是开枪，一样要扣一发、一样会被空仓挡住（full.txt:14691-14700）
+            empty = _out_of_ammo(me, cover_weapon)
+            if empty:
+                return empty
+            _spend_round(me, cover_weapon)
             total = roller.roll(10) + me.ref + me.wound_penalty + modifier_for(combat, me)
             lines.append(f"判定：{total} vs DV {dv}{modifier_text(combat, me)}")
+            lines.append(f"弹匣剩 {me.rounds_left(cover_weapon)} 发。")
             slot.action = True
             if total < dv:
                 lines.append("没打中，子弹嵌进了旁边的墙。")
@@ -2039,6 +2075,16 @@ def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
         _save(conn, combat)
         return "\n".join(lines)
 
+    # 弹药：按一次攻击动作打一发算（full.txt:14691-14700 未给「未命中不耗弹」，
+    # 所以命中与否都扣）。近战不耗弹；弓不用装填、也不耗弹（full.txt:14898-14899）。
+    shoot_weapon = None
+    if not melee:
+        shoot_weapon = _weapon_of(me, skill_name) or DEFAULT_WEAPON
+        empty = _out_of_ammo(me, shoot_weapon)
+        if empty:
+            return empty
+        _spend_round(me, shoot_weapon)
+
     mod_note = modifier_text(combat, me)
     total = roller.roll(10) + (me.dex if melee else me.ref) + level + penalty
     # 严重伤势：近战/远程各有独立惩罚（肌肉撕裂 melee、失去眼睛 ranged），
@@ -2067,6 +2113,8 @@ def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
 
     if not hit:
         lines.append("没打中。")
+        if shoot_weapon and shoot_weapon not in NO_RELOAD_WEAPONS:
+            lines.append(f"弹匣剩 {me.rounds_left(shoot_weapon)} 发。")
         _sync_pc_hp(conn, combat, me)
         _advance(conn, combat, roller, lines)
         _save(conn, combat)
@@ -2102,6 +2150,8 @@ def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
                              head=(aim_part == "head"), roller=roller, lines=lines,
                              force=(was_mortal and taken))
     lines.append(f"{target.name}：{target.line()}")
+    if shoot_weapon and shoot_weapon not in NO_RELOAD_WEAPONS:
+        lines.append(f"弹匣剩 {me.rounds_left(shoot_weapon)} 发。")
 
     _sync_pc_hp(conn, combat, me)
     _check_over(combat, lines)
@@ -2412,8 +2462,21 @@ def act(conn, group_id: str, user_id: str, text: str, *,
     if any(w in body for w in _RELOAD_WORDS):
         if slot.action:
             return "这回合的动作已经用过了。"
+        # 先看手里到底是什么武器（damage/tags），没有再看技能对应的武器类别
+        reload_weapon = (_weapon_of(me)
+                         or _weapon_of(me, _best_weapon_skill(
+                             roster.get(conn, group_id, user_id)))
+                         or DEFAULT_WEAPON)
+        if reload_weapon in NO_RELOAD_WEAPONS:
+            return (f"{me.name} 用的是{reload_weapon}：拈弓搭箭就是攻击动作的一部分，"
+                    "永远不用装填（full.txt:14898-14899）。")
         slot.action = True
-        lines.append(f"🔄 {me.name} 花一个动作装填完毕（弹药不计数）。")
+        # 「用一种子弹种类完全重新装填」——补满，不是补几发（full.txt:14543-14545）
+        cap = me.mag or _mag_of(reload_weapon)
+        before = me.rounds_left(reload_weapon)
+        me.ammo = cap
+        lines.append(f"🔄 {me.name} 花一个动作装填{reload_weapon}："
+                     f"{before}/{cap} → {cap}/{cap}。")
     elif any(w in body for w in _GETUP_WORDS):
         if slot.action:
             return "这回合的动作已经用过了。"

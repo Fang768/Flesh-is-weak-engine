@@ -1574,6 +1574,127 @@ async def sc_autofire(s: Sim) -> None:
     conn.close()
 
 
+async def sc_ammo(s: Sim) -> None:
+    """A4：弹药计数（单发扣弹、空仓拒绝、装填补满、弓不耗弹）。"""
+    print("【场景 29】A4 弹药计数：单发扣弹、空仓拒绝、装填补满")
+    conn = db.connect(":memory:")
+    gid = "qq:AMMO"
+
+    card = roster.build(template="独狼", name="阿飞",
+                        skill_overrides={"手枪": 4})
+    roster.save(conn, gid, "u1", card)
+    combat.start(conn, gid,
+                 enemies=[{"name": "打手", "count": 1, "range_m": 8}],
+                 roller=dice.ScriptedRoller([9, 2]))
+    f = combat.load(conn, gid)
+    pc = next(c for c in f.order if c.side == "pc")
+    f.turn_index = f.order.index(pc)
+    combat._save(conn, f)
+
+    # 1) 开打时枪是满的，打一发扣一发
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    show("初始", "ammo", f"ammo={me.ammo}（-1 = 还没计数，按满弹匣算）")
+    expect(me.rounds_left("手枪") == 8, "手枪默认弹匣 8 发")
+
+    hit = combat.attack(conn, gid, "u1", "打手",
+                        roller=dice.ScriptedRoller([10, 3, 3, 1, 1], loop=True))
+    show("开枪", "单发", hit)
+    expect("弹匣剩 7 发" in hit, "开一枪扣一发")
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    expect(me.ammo == 7, "弹药写进战斗状态")
+
+    # 2) 没打中也扣弹（规则书没给「未命中不耗弹」）
+    f = combat.load(conn, gid)
+    pc = next(c for c in f.order if c.side == "pc")
+    f.turn_index = f.order.index(pc)
+    f.round += 1
+    combat._reset_slots(f)
+    for c in f.combatants:
+        if c.side == "pc":
+            c.ammo = 7
+    combat._save(conn, f)
+    miss = combat.attack(conn, gid, "u1", "打手",
+                         roller=dice.ScriptedRoller([1, 1, 1, 1, 1], loop=True))
+    show("失手", "单发", miss)
+    expect("没打中" in miss and "弹匣剩 6 发" in miss, "失手一样扣弹（full.txt:14691-14700 无免扣条款）")
+
+    # 3) 空仓直接拒绝，且不消耗动作
+    f = combat.load(conn, gid)
+    pc = next(c for c in f.order if c.side == "pc")
+    f.turn_index = f.order.index(pc)
+    f.round += 1
+    combat._reset_slots(f)
+    for c in f.combatants:
+        if c.side == "pc":
+            c.ammo = 0
+    combat._save(conn, f)
+    empty = combat.attack(conn, gid, "u1", "打手",
+                          roller=dice.ScriptedRoller([10, 3, 3]))
+    show("空仓", "单发", empty)
+    expect("没子弹了" in empty and "装填" in empty, "0 发时拒绝并提示装填")
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    slot = combat._slots(f)[me.owner_qq]
+    expect(not slot.action, "被拒绝不消耗动作——同一个回合还能装填")
+
+    # 4) 装填是「完全重新装填」，补满整个弹匣
+    reload_text = combat.act(conn, gid, "u1", "装填",
+                             roller=dice.ScriptedRoller([3]))
+    show("装填", "补满", reload_text)
+    expect("0/8 → 8/8" in reload_text, "装填补满（full.txt:14543-14545 完全重新装填）")
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    expect(me.ammo == 8, "弹匣回到满")
+
+    # 5) 学到的具体容量优先（mag 12）
+    f = combat.load(conn, gid)
+    pc = next(c for c in f.order if c.side == "pc")
+    f.turn_index = f.order.index(pc)
+    f.round += 1
+    combat._reset_slots(f)
+    for c in f.combatants:
+        if c.side == "pc":
+            c.ammo = 3
+            c.mag = 12
+    combat._save(conn, f)
+    learned = combat.act(conn, gid, "u1", "装填", roller=dice.ScriptedRoller([3]))
+    show("装填", "mag=12", learned)
+    expect("3/12 → 12/12" in learned, "有具体弹匣容量时按它补（不是类别默认 8）")
+
+    # 6) 弓不耗弹、也没有装填动作
+    f = combat.load(conn, gid)
+    pc = next(c for c in f.order if c.side == "pc")
+    f.turn_index = f.order.index(pc)
+    f.round += 1
+    combat._reset_slots(f)
+    for c in f.combatants:
+        if c.side == "pc":
+            c.damage = "弓"
+            c.ammo = 0
+            c.mag = 0
+    combat._save(conn, f)
+    bow = combat.attack(conn, gid, "u1", "打手", skill="弓",
+                        roller=dice.ScriptedRoller([10, 3, 3, 1, 1], loop=True))
+    show("弓", "射击", bow)
+    expect("没子弹了" not in bow, "弓不用装填也不打空（full.txt:14898-14899）")
+    bow_reload = combat.act(conn, gid, "u1", "装填", roller=dice.ScriptedRoller([3]))
+    show("弓", "装填", bow_reload)
+    expect("永远不用装填" in bow_reload, "弓没有装填这个动作，说了白说、不扣动作")
+
+    # 7) 敌人不计数
+    f = combat.load(conn, gid)
+    foe = next(c for c in f.combatants if c.side != "pc")
+    expect(foe.ammo == -1, "NPC 不进弹药计数（约定：敌人不会打空）")
+
+    # 8) 存盘往返
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    expect(me.ammo == 0 and me.mag == 0, "弹药随战斗存盘/读盘保留")
+    conn.close()
+
+
 SCENARIOS = {
     "cold": sc_cold_start,
     "perm": sc_permission,
@@ -1603,6 +1724,7 @@ SCENARIOS = {
     "mortal": sc_mortal,
     "crit": sc_crit,
     "autofire": sc_autofire,
+    "ammo": sc_ammo,
 }
 
 
