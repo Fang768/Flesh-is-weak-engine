@@ -1,0 +1,13 @@
+.venv/
+data/
+logs/
+__pycache__/
+*.pyc
+*.log
+*.log.*
+pytest-of-*/
+tests/
+deploy/
+docs/
+scripts/
+napcat/

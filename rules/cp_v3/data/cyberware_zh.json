@@ -1,0 +1,496 @@
+{
+ "_meta": {
+  "source": "书 p185–213、p252–261",
+  "note": "游戏里按条目名用中文；note 是给玩家/模型看的一句话解释"
+ },
+ "items": {
+  "Audio Splice": {
+   "zh": "听觉接驳器",
+   "note": "耳塞/头戴式，经耳膜接听神经"
+  },
+  "Optical Splice": {
+   "zh": "视觉接驳器",
+   "note": "环绕护目镜 或 纳米隐形眼镜，经太阳穴探针接视神经"
+  },
+  "Control Splice": {
+   "zh": "操控接驳器",
+   "note": "腕内侧正中神经，接载具/武器控制线"
+  },
+  "Tactile Splice": {
+   "zh": "触觉接驳器",
+   "note": "尾骨基座接脊神经"
+  },
+  "Olfactory Splice": {
+   "zh": "嗅觉接驳器",
+   "note": "面罩或鼻塞，经嗅神经接脑"
+  },
+  "Reflex Splice": {
+   "zh": "反射接驳器",
+   "note": "直接插入脊椎"
+  },
+  "Chipware Port": {
+   "zh": "芯片接口",
+   "note": "皮肤表面金属钮，可插技能/数据/赛博甲板芯片"
+  },
+  "Chipware port [4 way]": {
+   "zh": "四向芯片接口",
+   "note": "同时插 4 片技能或数据芯片"
+  },
+  "Voice of the Machine": {
+   "zh": "机械之音",
+   "note": "与机械直连对话的接驳选项"
+  },
+  "AutoFAC": {
+   "zh": "自动工厂链接",
+   "note": "直连操控 MLINK 自动工厂与重型机械"
+  },
+  "Radio": {
+   "zh": "无线电链接",
+   "note": "微型电台，同频 1 英里"
+  },
+  "Smartgun": {
+   "zh": "智能枪链接",
+   "note": "枪械直连神经，开枪 +2；改装费 = 枪价 ×2"
+  },
+  "Vehicle": {
+   "zh": "载具链接",
+   "note": "脑控载具，驾驶/操纵 +2；改装费 = 载具价 +40%"
+  },
+  "Targeting": {
+   "zh": "瞄准链接",
+   "note": "投射瞄准镜；只对 smartgun 攻击 +1"
+  },
+  "Subvocal phone": {
+   "zh": "无声电话",
+   "note": "直连 Agent/手机，无声通话"
+  },
+  "Mechapresence": {
+   "zh": "机甲临场感",
+   "note": "与机甲/载具的全感知同步"
+  },
+  "Amped Acuity": {
+   "zh": "强化听觉辨识",
+   "note": "声音相关 Awareness +1"
+  },
+  "Amped Hearing Range": {
+   "zh": "强化听觉频段",
+   "note": "可听次声与超声"
+  },
+  "Amped Olfactory Sensitivity": {
+   "zh": "强化嗅觉灵敏度",
+   "note": "嗅觉 Awareness +2"
+  },
+  "Amped Reflexes (Kerenzikov)": {
+   "zh": "强化反射（克伦兹科夫）",
+   "note": "REF 永久 +1"
+  },
+  "Amped Reflexes (Sandivistan)": {
+   "zh": "强化反射（桑迪维斯坦）",
+   "note": "5 回合内 REF +3"
+  },
+  "Amped Tactile Sensitivity": {
+   "zh": "强化触觉灵敏度",
+   "note": "触觉 Awareness +2"
+  },
+  "Amped Vision Sensitivity": {
+   "zh": "强化视觉灵敏度",
+   "note": "视觉搜索时 Awareness +2"
+  },
+  "Analyzer": {
+   "zh": "分析器",
+   "note": "凭气味识别化合物，5m，70%"
+  },
+  "Anti-dazzle": {
+   "zh": "抗眩光",
+   "note": "免疫闪光、激光致盲、频闪、闪光弹、远光灯"
+  },
+  "Digital Recorder": {
+   "zh": "数字录音器",
+   "note": "任意数字源录 2 小时"
+  },
+  "Infrared Vision": {
+   "zh": "红外视觉",
+   "note": "靠热辐射在全黑中视物"
+  },
+  "Level Damper": {
+   "zh": "音量抑制器",
+   "note": "免疫震撼弹与声波武器"
+  },
+  "Low Light": {
+   "zh": "微光视觉",
+   "note": "在暗光、近全黑中视物"
+  },
+  "Microvision": {
+   "zh": "显微视觉",
+   "note": "等同实验室显微镜"
+  },
+  "Pain Editor": {
+   "zh": "痛觉编辑器",
+   "note": "屏蔽冷热痛，Will 类 +4"
+  },
+  "Radiation Vision": {
+   "zh": "辐射视觉",
+   "note": "看到辐射辉光，10m，80% 检出"
+  },
+  "Scent Tracking": {
+   "zh": "气味追踪",
+   "note": "追踪/潜行 +2，50% 锁定气味"
+  },
+  "Smell Damper": {
+   "zh": "气味抑制器",
+   "note": "按需屏蔽气味"
+  },
+  "Sonar": {
+   "zh": "声呐",
+   "note": "50m 声呐，70% 有效"
+  },
+  "Sound Editing": {
+   "zh": "声音编辑",
+   "note": "选择性放大频段 +2"
+  },
+  "Synthesizer": {
+   "zh": "变声器",
+   "note": "模仿任意录音，最多 10 种，表演 +2"
+  },
+  "Targeting Scope": {
+   "zh": "瞄准镜",
+   "note": "所有远程攻击 +1"
+  },
+  "Telescopic Vision": {
+   "zh": "望远视觉",
+   "note": "最高 20 倍"
+  },
+  "Thermographic Vision": {
+   "zh": "热成像视觉",
+   "note": "看热型与温度"
+  },
+  "Ultraviolet Vision": {
+   "zh": "紫外视觉",
+   "note": "看紫外波段"
+  },
+  "Subvision Viewscreen": {
+   "zh": "皮下显示屏",
+   "note": "皮下投影显示"
+  },
+  "Subvision Chrono": {
+   "zh": "皮下计时器",
+   "note": "皮下时间显示"
+  },
+  "Limb Bracers": {
+   "zh": "肢体护腕",
+   "note": "护腕本体，每条肢体最多 3 个"
+  },
+  "Muscle T's": {
+   "zh": "肌肉强化贴",
+   "note": "肌肉电刺激贴片"
+  },
+  "Air Hypo": {
+   "zh": "气动注射器",
+   "note": "无针注射"
+  },
+  "B&E Kit": {
+   "zh": "破门开锁包",
+   "note": "入室与破锁工具组"
+  },
+  "Chip storage 1": {
+   "zh": "芯片存储 1",
+   "note": "收纳 1 片芯片"
+  },
+  "Chip storage 2": {
+   "zh": "芯片存储 2",
+   "note": "收纳 2 片芯片"
+  },
+  "Extra Arms [torso only]": {
+   "zh": "额外手臂（仅躯干）",
+   "note": "躯干加装机械臂"
+  },
+  "Jump Booster": {
+   "zh": "跳跃助推器",
+   "note": "强化跳跃"
+  },
+  "Micro Toolkit": {
+   "zh": "微型工具包",
+   "note": "随身维修工具"
+  },
+  "Mini Flashlight": {
+   "zh": "微型手电",
+   "note": "护腕内置照明"
+  },
+  "Mini saw": {
+   "zh": "微型锯",
+   "note": "切割用"
+  },
+  "Remote speaker/monitor": {
+   "zh": "远程扬声器/监视器",
+   "note": "远程收音与放音"
+  },
+  "Smart Keyboard": {
+   "zh": "智能键盘",
+   "note": "虚拟输入设备"
+  },
+  "Tracking Device": {
+   "zh": "追踪器",
+   "note": "信标式定位"
+  },
+  "Techscanner": {
+   "zh": "技术扫描仪",
+   "note": "诊断电子与机械"
+  },
+  "Video Optic Transmitter": {
+   "zh": "视觉影音发射器",
+   "note": "把看到的画面传出去"
+  },
+  "Webs": {
+   "zh": "蹼膜",
+   "note": "指间蹼，利于游泳"
+  },
+  "Amped Hearing Acuity": {
+   "zh": "强化听力辨识",
+   "note": "听觉 Awareness +1"
+  },
+  "Eardrum Shield": {
+   "zh": "鼓膜护盾",
+   "note": "防爆音伤害"
+  },
+  "Low Light Vision": {
+   "zh": "微光视力",
+   "note": "暗光视物"
+  },
+  "Nictitating Membrane": {
+   "zh": "瞬膜",
+   "note": "眼部防护膜"
+  },
+  "Radiation Perception": {
+   "zh": "辐射感知",
+   "note": "感知辐射强度"
+  },
+  "Scent Analysis": {
+   "zh": "气味分析",
+   "note": "分辨气味成分"
+  },
+  "Boosted Leap": {
+   "zh": "强化跳跃",
+   "note": "跳跃距离提升"
+  },
+  "Chameleon Skin": {
+   "zh": "变色皮肤",
+   "note": "主动伪装"
+  },
+  "Efficient Lungs": {
+   "zh": "高效肺",
+   "note": "闭气更久"
+  },
+  "Eye Color Change": {
+   "zh": "瞳色改造",
+   "note": "改变眼睛颜色"
+  },
+  "Facial Feature Change": {
+   "zh": "面部改造",
+   "note": "改变面部特征"
+  },
+  "Female Figure Change": {
+   "zh": "女性体型改造",
+   "note": "改变体型曲线"
+  },
+  "Hair Color Change": {
+   "zh": "发色改造",
+   "note": "改变发色"
+  },
+  "Height Change": {
+   "zh": "身高改造",
+   "note": "改变身高"
+  },
+  "Hide Armor": {
+   "zh": "皮甲",
+   "note": "皮肤增厚成甲"
+  },
+  "High Speed Swimming": {
+   "zh": "高速游泳",
+   "note": "游泳速度提升"
+  },
+  "Poison Resistant": {
+   "zh": "抗毒",
+   "note": "抗毒素与毒气"
+  },
+  "Sex change": {
+   "zh": "性别改造",
+   "note": "完整性别改造"
+  },
+  "Sex Pheromones": {
+   "zh": "性信息素",
+   "note": "分泌吸引性信息素"
+  },
+  "Skin Camouflage": {
+   "zh": "皮肤迷彩",
+   "note": "皮肤图案伪装"
+  },
+  "Skin Color Change": {
+   "zh": "肤色改造",
+   "note": "改变肤色"
+  },
+  "Skin Harden (SP4)": {
+   "zh": "皮肤硬化（SP4）",
+   "note": "皮肤获得 SP4"
+  },
+  "Water Breathing": {
+   "zh": "水下呼吸",
+   "note": "水中呼吸"
+  },
+  "Web Fingers & Toes": {
+   "zh": "蹼指蹼趾",
+   "note": "指趾间长蹼"
+  },
+  "Weight Change": {
+   "zh": "体重改造",
+   "note": "改变体重"
+  },
+  "All Terrain Tracks": {
+   "zh": "全地形履带",
+   "note": "履带式移动"
+  },
+  "Flight Thrusters": {
+   "zh": "飞行推进器",
+   "note": "空中推进"
+  },
+  "Hover Fans": {
+   "zh": "悬浮风扇",
+   "note": "悬停移动"
+  },
+  "Ostrich Walker": {
+   "zh": "鸵鸟步行器",
+   "note": "双足步行结构"
+  },
+  "Six Limbs": {
+   "zh": "六肢",
+   "note": "加装两条肢"
+  },
+  "Anti-dazzle Shielding": {
+   "zh": "抗眩光护盾",
+   "note": "机甲级抗眩光"
+  },
+  "Chameleon FX": {
+   "zh": "变色特效",
+   "note": "机甲伪装"
+  },
+  "Cutting Torch": {
+   "zh": "切割炬",
+   "note": "工业切割"
+  },
+  "EMP Self-destruct": {
+   "zh": "EMP 自毁",
+   "note": "自毁时释放电磁脉冲"
+  },
+  "Enhanced Audio Range": {
+   "zh": "增强音频范围",
+   "note": "更宽听觉频段"
+  },
+  "Entertainment System": {
+   "zh": "娱乐系统",
+   "note": "车载娱乐"
+  },
+  "Explosive Self-destruct": {
+   "zh": "爆炸自毁",
+   "note": "自毁时爆炸"
+  },
+  "Hearing Acuity": {
+   "zh": "听力辨识",
+   "note": "听觉强化"
+  },
+  "Infrared optics": {
+   "zh": "红外光学",
+   "note": "红外成像"
+  },
+  "Light Armor (SP6)": {
+   "zh": "轻型装甲（SP6）",
+   "note": "机甲护甲"
+  },
+  "Mecharider Aircraft": {
+   "zh": "机甲骑手·飞行器",
+   "note": "可变形飞行器"
+  },
+  "Mecharider Cyberbike": {
+   "zh": "机甲骑手·赛博摩托",
+   "note": "可变形摩托"
+  },
+  "Mecharider Kong": {
+   "zh": "机甲骑手·金刚",
+   "note": "重型格斗形态"
+  },
+  "Mecharider Ostrich": {
+   "zh": "机甲骑手·鸵鸟",
+   "note": "高速奔走形态"
+  },
+  "Mecharider Runner": {
+   "zh": "机甲骑手·奔走者",
+   "note": "轻型机动形态"
+  },
+  "Motion Sensor": {
+   "zh": "运动传感器",
+   "note": "探测移动目标"
+  },
+  "Olfactory Sensors": {
+   "zh": "嗅觉传感器",
+   "note": "气味探测"
+  },
+  "Radiation Detector": {
+   "zh": "辐射探测器",
+   "note": "探测辐射源"
+  },
+  "Remote Speaker": {
+   "zh": "远程扬声器",
+   "note": "远程喊话"
+  },
+  "Small Object Transform": {
+   "zh": "小物件变形",
+   "note": "把物件变成机甲配件"
+  },
+  "Smell Analyzer": {
+   "zh": "气味分析仪",
+   "note": "分析气味成分"
+  },
+  "Sound Damper": {
+   "zh": "声音抑制器",
+   "note": "降噪"
+  },
+  "Storage Space": {
+   "zh": "储物空间",
+   "note": "内置货舱"
+  },
+  "Superlight Armor (SP4)": {
+   "zh": "超轻型装甲（SP4）",
+   "note": "轻量护甲"
+  },
+  "Thermal Dampers": {
+   "zh": "热抑制器",
+   "note": "抑制热信号"
+  },
+  "UV light & Optics": {
+   "zh": "紫外灯与光学件",
+   "note": "紫外照明与观察"
+  },
+  "VacBuster": {
+   "zh": "真空破坏器",
+   "note": "太空作业工具"
+  },
+  "Visual Acuity": {
+   "zh": "视觉辨识",
+   "note": "视觉强化"
+  },
+  "Wall Cling": {
+   "zh": "攀壁",
+   "note": "吸附墙面移动"
+  },
+  "Wire Cutters": {
+   "zh": "断线钳",
+   "note": "剪断线缆与围栏"
+  },
+  "TEChie PACKAGE": {
+   "zh": "技工套装",
+   "note": "GIRI 17：显微/望远、触觉强化、控自动工厂、4 向芯片口、痛觉编辑器、抗眩光、视觉强化"
+  },
+  "RANGED COMBAT PACKAGE": {
+   "zh": "枪战套装",
+   "note": "GIRI 25：克伦兹科夫 +1、智能枪与瞄准链接、视觉强化、抗眩光"
+  }
+ }
+}

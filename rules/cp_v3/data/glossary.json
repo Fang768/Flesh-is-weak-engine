@@ -1,0 +1,667 @@
+{
+  "source": "Cyberpunk V3.0 (CP4110) Core Rulebook, 书 p157 技能清单 / p144-147 属性",
+  "note": "译文参考《Cyberpunk RED Easy Mode v1.1》中文版既有译名，V3 独有技能按同风格直译；英文保留为引擎内部键。",
+  "stats": {
+    "INT": "智力",
+    "REF": "反应",
+    "TECH": "技术",
+    "DEX": "敏捷",
+    "COOL": "镇定",
+    "WILL": "意志",
+    "STR": "力量",
+    "CON": "体质",
+    "MOVE": "移动",
+    "BODY": "体格",
+    "LUCK": "幸运",
+    "HUM": "人性",
+    "REC": "恢复",
+    "END": "耐力",
+    "RES": "抗性",
+    "RUN": "跑步",
+    "SPR": "冲刺",
+    "SWIM": "游泳速度",
+    "LEAP": "跳跃",
+    "HITS": "生命值",
+    "STUN": "昏迷值",
+    "SD": "死亡豁免"
+  },
+  "categories": {
+    "Fighting": "格斗",
+    "Ranged": "远程",
+    "Awareness": "觉察",
+    "Control": "操控",
+    "Body": "体能",
+    "Interaction": "交际",
+    "Technique": "技艺",
+    "Performance": "表演",
+    "Education": "学识"
+  },
+  "skills": [
+    {
+      "en": "Brawling/Hand to Hand",
+      "zh": "徒手搏斗",
+      "stat": "DEX",
+      "cat": "Fighting"
+    },
+    {
+      "en": "Fencing",
+      "zh": "击剑",
+      "stat": "DEX",
+      "cat": "Fighting"
+    },
+    {
+      "en": "Martial Art",
+      "zh": "武术",
+      "stat": "DEX",
+      "cat": "Fighting"
+    },
+    {
+      "en": "Melee",
+      "zh": "近战武器",
+      "stat": "DEX",
+      "cat": "Fighting"
+    },
+    {
+      "en": "Archery",
+      "zh": "弓术",
+      "stat": "REF",
+      "cat": "Ranged"
+    },
+    {
+      "en": "Gunnery",
+      "zh": "重炮操作",
+      "stat": "REF",
+      "cat": "Ranged"
+    },
+    {
+      "en": "Handgun",
+      "zh": "手枪",
+      "stat": "REF",
+      "cat": "Ranged"
+    },
+    {
+      "en": "Heavy Weapons",
+      "zh": "重型武器",
+      "stat": "REF",
+      "cat": "Ranged"
+    },
+    {
+      "en": "Rifle",
+      "zh": "步枪",
+      "stat": "REF",
+      "cat": "Ranged"
+    },
+    {
+      "en": "Submachinegun",
+      "zh": "冲锋枪",
+      "stat": "REF",
+      "cat": "Ranged"
+    },
+    {
+      "en": "Awareness/Notice",
+      "zh": "觉察",
+      "stat": "INT",
+      "cat": "Awareness"
+    },
+    {
+      "en": "Deduction",
+      "zh": "推理",
+      "stat": "INT",
+      "cat": "Awareness"
+    },
+    {
+      "en": "Hide/Evade",
+      "zh": "藏匿与脱身",
+      "stat": "INT",
+      "cat": "Awareness"
+    },
+    {
+      "en": "Lipreading",
+      "zh": "读唇",
+      "stat": "INT",
+      "cat": "Awareness"
+    },
+    {
+      "en": "Shadow/Track",
+      "zh": "跟踪",
+      "stat": "INT",
+      "cat": "Awareness"
+    },
+    {
+      "en": "Surveillance",
+      "zh": "监视",
+      "stat": "INT",
+      "cat": "Awareness"
+    },
+    {
+      "en": "Driving",
+      "zh": "驾驶（汽车）",
+      "stat": "REF",
+      "cat": "Control"
+    },
+    {
+      "en": "Motorcycle",
+      "zh": "驾驶（摩托）",
+      "stat": "REF",
+      "cat": "Control"
+    },
+    {
+      "en": "Hvy. Machinery",
+      "zh": "重型机械",
+      "stat": "REF",
+      "cat": "Control"
+    },
+    {
+      "en": "Pilot (Gyro)",
+      "zh": "驾驶（旋翼机）",
+      "stat": "REF",
+      "cat": "Control"
+    },
+    {
+      "en": "Pilot (Fixed Wing)",
+      "zh": "驾驶（固定翼）",
+      "stat": "REF",
+      "cat": "Control"
+    },
+    {
+      "en": "Pilot (Dirigible)",
+      "zh": "驾驶（飞艇）",
+      "stat": "REF",
+      "cat": "Control"
+    },
+    {
+      "en": "Pilot (Vect.Thrust)",
+      "zh": "驾驶（矢量推力）",
+      "stat": "REF",
+      "cat": "Control"
+    },
+    {
+      "en": "Power Armor",
+      "zh": "动力装甲",
+      "stat": "REF",
+      "cat": "Control"
+    },
+    {
+      "en": "Subdock",
+      "zh": "驾驶（潜水器）",
+      "stat": "REF",
+      "cat": "Control"
+    },
+    {
+      "en": "Link (mecha)",
+      "zh": "机甲链接",
+      "stat": "WILL",
+      "cat": "Control"
+    },
+    {
+      "en": "Endurance",
+      "zh": "耐力",
+      "stat": "CON",
+      "cat": "Body"
+    },
+    {
+      "en": "Strength Feat",
+      "zh": "力量特技",
+      "stat": "STR",
+      "cat": "Body"
+    },
+    {
+      "en": "Athletics",
+      "zh": "运动",
+      "stat": "DEX",
+      "cat": "Body"
+    },
+    {
+      "en": "Dance",
+      "zh": "舞蹈",
+      "stat": "DEX",
+      "cat": "Body"
+    },
+    {
+      "en": "Dodge & Escape",
+      "zh": "闪避与脱身",
+      "stat": "DEX",
+      "cat": "Body"
+    },
+    {
+      "en": "Swimming",
+      "zh": "游泳",
+      "stat": "DEX",
+      "cat": "Body"
+    },
+    {
+      "en": "Stealth",
+      "zh": "潜行",
+      "stat": "DEX",
+      "cat": "Body"
+    },
+    {
+      "en": "Resistance",
+      "zh": "抗性（拷问/药物）",
+      "stat": "WILL",
+      "cat": "Body"
+    },
+    {
+      "en": "Animal Handling",
+      "zh": "驯兽",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Bribery",
+      "zh": "贿赂",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Interrogation",
+      "zh": "审讯",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Intimidate",
+      "zh": "威吓",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Oratory",
+      "zh": "演说",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Streetwise",
+      "zh": "街头智慧",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Human Perception",
+      "zh": "察言观色",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Interview",
+      "zh": "访谈套话",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Leadership",
+      "zh": "统御",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Seduction",
+      "zh": "诱惑",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Social Etiquette",
+      "zh": "社交礼仪",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Personal Grooming",
+      "zh": "仪容打理",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Persuasion & Fast Talk",
+      "zh": "说服与花言巧语",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Trading",
+      "zh": "交易",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Wardrobe & Style",
+      "zh": "衣着与风格",
+      "stat": "COOL",
+      "cat": "Interaction"
+    },
+    {
+      "en": "Aero Tech",
+      "zh": "航空技术",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "AV Tech",
+      "zh": "飞行器技术",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Basic Tech",
+      "zh": "基础技术",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Cryotank Operation",
+      "zh": "冷冻舱操作",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Cyber Tech",
+      "zh": "义体技术",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Demolitions",
+      "zh": "爆破",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Disguise",
+      "zh": "伪装",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Electronics",
+      "zh": "电子学",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Elect. Security",
+      "zh": "电子安防",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "First Aid",
+      "zh": "急救",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Forgery",
+      "zh": "伪造",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Gyro Tech",
+      "zh": "旋翼机技术",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Jury Rig",
+      "zh": "临时改装",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Mecha Tech",
+      "zh": "机甲技术",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Medical Tech",
+      "zh": "医疗技术",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Paint or Draw",
+      "zh": "绘画",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Photo & Film",
+      "zh": "摄影与电影",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Pharmaceuticals",
+      "zh": "药物学",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Pick Lock",
+      "zh": "撬锁",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Pick Pocket",
+      "zh": "扒窃",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Weaponsmith",
+      "zh": "武器匠",
+      "stat": "TECH",
+      "cat": "Technique"
+    },
+    {
+      "en": "Interface",
+      "zh": "接口（网行接入）",
+      "stat": "INT",
+      "cat": "Performance"
+    },
+    {
+      "en": "Perform",
+      "zh": "表演",
+      "stat": "INT",
+      "cat": "Performance"
+    },
+    {
+      "en": "Play Instrument",
+      "zh": "乐器演奏",
+      "stat": "INT",
+      "cat": "Performance"
+    },
+    {
+      "en": "Ventriloquism",
+      "zh": "腹语",
+      "stat": "INT",
+      "cat": "Performance"
+    },
+    {
+      "en": "Accounting",
+      "zh": "会计",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Anthropology",
+      "zh": "人类学",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Biology",
+      "zh": "生物学",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Botany",
+      "zh": "植物学",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Chemistry",
+      "zh": "化学",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Coding",
+      "zh": "编程",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Composition",
+      "zh": "写作",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Diagnose Illness",
+      "zh": "诊断疾病",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Education & Gen.Know.",
+      "zh": "通识教育",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Expert",
+      "zh": "专家知识",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Gamble",
+      "zh": "赌博",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Geology",
+      "zh": "地质学",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "History",
+      "zh": "历史",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Language",
+      "zh": "语言",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Library Search",
+      "zh": "图书馆检索",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Mathematics",
+      "zh": "数学",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Market Trading",
+      "zh": "市场交易",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Physics",
+      "zh": "物理学",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Teaching",
+      "zh": "教学",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Wilderness Survival",
+      "zh": "野外生存",
+      "stat": "INT",
+      "cat": "Education"
+    },
+    {
+      "en": "Zoology",
+      "zh": "动物学",
+      "stat": "INT",
+      "cat": "Education"
+    }
+  ],
+  "terms": {
+    "DV": "难度值",
+    "Easy": "容易",
+    "Everyday": "日常",
+    "Challenging": "有挑战",
+    "Hard": "困难",
+    "Very Hard": "非常困难",
+    "Extreme": "极端",
+    "Initiative": "先攻",
+    "Combat Phase": "战斗轮",
+    "Fumble": "大失败",
+    "Open Ended": "开放式掷骰（自然 10 追加）",
+    "Cover": "掩体",
+    "Hard Cover": "硬掩体",
+    "Soft Cover": "软掩体",
+    "Dodge": "闪避",
+    "Parry": "格挡",
+    "Block": "招架",
+    "Snapshooting": "速射",
+    "Autofire": "全自动",
+    "Suppressive Fire": "压制射击",
+    "Reliability": "可靠性",
+    "Very Reliable": "非常可靠",
+    "Standard": "标准",
+    "Unreliable": "不可靠",
+    "Stopping Power": "停止作用",
+    "SP": "护甲值",
+    "EV": "负重惩罚",
+    "HITS": "生命值",
+    "STUN": "昏迷值",
+    "Death Save": "死亡豁免",
+    "Mortally Wounded": "濒死",
+    "Seriously Wounded": "重伤",
+    "Lightly Wounded": "轻伤",
+    "Stun Save": "昏迷判定",
+    "Giri": "义理（人情债）",
+    "Altcult": "另类教派",
+    "Cyberware": "义体",
+    "Bracer": "护腕",
+    "Modd": "模组插件",
+    "Splice": "神经接驳",
+    "Neural Net": "神经网络",
+    "Chipware Port": "芯片接口",
+    "Smartgun": "智能枪",
+    "Kerenzikov": "克伦兹科夫强化",
+    "Netrunner": "网行者",
+    "DataPool": "数据池",
+    "Construct": "构筑体",
+    "ICON": "图标体",
+    "Lifepath": "人生路径",
+    "IP": "经验点",
+    "REP": "声望",
+    "CP": "角色点",
+    "Perk": "优势",
+    "Talent": "天赋"
+  }
+}

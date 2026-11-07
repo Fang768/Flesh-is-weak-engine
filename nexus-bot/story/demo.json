@@ -1,0 +1,220 @@
+{
+  "id": "demo",
+  "title": "霓虹血债",
+  "premise": "中间人米拉欠你一次，她把手里的货押在七号码头。今晚有人要先动手——你要么把货抢回来，要么把欠条撕了。",
+  "acts": [
+    {
+      "id": "act1",
+      "title": "接洽",
+      "goal": "在七号码头找到米拉押下的货，并弄清是谁先动的手",
+      "scenes": [
+        {
+          "id": "act1.dock",
+          "name": "七号码头",
+          "text": "雨把霓虹泡成一滩油彩。七号码头的闸门半开，两个穿雨衣的打手站在货柜区入口，脚边有新鲜的刹车痕。",
+          "npcs": [
+            "mira",
+            "thug"
+          ],
+          "clues": [
+            {
+              "id": "brake",
+              "text": "刹车痕正好停在仓库门口，不是路过的车留下的",
+              "skill": "觉察",
+              "stat": "INT",
+              "dv": 14,
+              "keywords": [
+                "刹车",
+                "轮胎",
+                "车痕"
+              ]
+            },
+            {
+              "id": "raincoat",
+              "text": "雨衣内侧印着「海伍德工业」的标",
+              "skill": "地方专家",
+              "stat": "INT",
+              "dv": 15,
+              "keywords": [
+                "雨衣",
+                "海伍德",
+                "工牌"
+              ]
+            }
+          ],
+          "gates": [
+            {
+              "id": "sneak",
+              "skill": "潜行",
+              "dv": 15,
+              "next": "act1.warehouse",
+              "fail": "act1.dock",
+              "fail_text": "你把水踩响了一声，打手转过头来。"
+            },
+            {
+              "id": "talk",
+              "skill": "交谈",
+              "dv": 17,
+              "next": "act1.warehouse",
+              "fail": "act1.alley",
+              "fail_text": "对方不吃这套，把你往巷子里推。"
+            },
+            {
+              "id": "fight",
+              "skill": "手枪",
+              "dv": 15,
+              "next": "act1.warehouse",
+              "fail": "act1.alley",
+              "fail_text": "枪声惊动了整条街，你只能先撤。"
+            }
+          ],
+          "exits": [
+            "act1.warehouse",
+            "act1.alley"
+          ]
+        },
+        {
+          "id": "act1.alley",
+          "name": "西侧后巷",
+          "text": "后巷堆着报废的义体躯壳，一个维修摊还亮着灯。摊主说自己什么都不知道，但手一直在抖。",
+          "npcs": [
+            "fixer"
+          ],
+          "clues": [
+            {
+              "id": "tremble",
+              "text": "摊主的手在抖——不是怕你，是在等谁过来",
+              "skill": "觉察",
+              "stat": "INT",
+              "dv": 13,
+              "keywords": [
+                "摊主",
+                "手抖",
+                "发抖"
+              ]
+            }
+          ],
+          "gates": [
+            {
+              "id": "press",
+              "skill": "审讯",
+              "dv": 15,
+              "next": "act1.warehouse",
+              "fail": "act1.alley",
+              "fail_text": "摊主闭嘴了，什么都不肯再说。"
+            },
+            {
+              "id": "buy",
+              "skill": "交易",
+              "dv": 14,
+              "next": "act1.warehouse",
+              "fail": "act1.alley",
+              "fail_text": "他要价太高，你身上不够。"
+            }
+          ],
+          "exits": [
+            "act1.warehouse",
+            "act1.dock"
+          ]
+        },
+        {
+          "id": "act1.warehouse",
+          "name": "三号仓库",
+          "text": "仓库里只有一盏工矿灯。货柜被撬开，里面是空的——但控制台上还留着上一笔交易的记录。",
+          "npcs": [
+            "mira"
+          ],
+          "clues": [
+            {
+              "id": "log",
+              "text": "装货记录写着半小时前有人把货搬走了",
+              "skill": "觉察",
+              "stat": "INT",
+              "dv": 15,
+              "keywords": [
+                "装货记录",
+                "货单",
+                "搬运记录"
+              ]
+            },
+            {
+              "id": "mira_here",
+              "text": "货架下的血迹还是新的，她刚走过这里",
+              "skill": "觉察",
+              "stat": "INT",
+              "dv": 13,
+              "keywords": [
+                "血迹",
+                "血"
+              ]
+            }
+          ],
+          "gates": [
+            {
+              "id": "trace",
+              "skill": "追踪",
+              "dv": 17,
+              "next": "act1.roof",
+              "fail": "act1.warehouse",
+              "fail_text": "线索在这里断了。"
+            }
+          ],
+          "exits": [
+            "act1.roof",
+            "act1.dock"
+          ]
+        },
+        {
+          "id": "act1.roof",
+          "name": "仓库天台",
+          "text": "天台上风很大。米拉靠在通风口边，肩上有一道还在渗血的伤口，手里攥着一张芯片。",
+          "npcs": [
+            "mira"
+          ],
+          "clues": [
+            {
+              "id": "chip",
+              "text": "芯片还在发热，刚刚有人用过它",
+              "skill": "赛博技术",
+              "stat": "TECH",
+              "dv": 15,
+              "keywords": [
+                "芯片",
+                "发热"
+              ]
+            }
+          ],
+          "gates": [
+            {
+              "id": "help",
+              "skill": "急救",
+              "dv": 13,
+              "next": "act1.roof",
+              "fail": "act1.roof",
+              "fail_text": "血没止住，她说话越来越轻。"
+            }
+          ],
+          "exits": [],
+          "ending": "act1_end"
+        }
+      ]
+    }
+  ],
+  "npcs": {
+    "mira": {
+      "name": "米拉",
+      "voice": "冷淡、句子短、不说废话"
+    },
+    "thug": {
+      "name": "雨衣打手",
+      "voice": "凶但没什么脑子"
+    },
+    "fixer": {
+      "name": "维修摊主",
+      "voice": "絮絮叨叨、怕事"
+    }
+  },
+  "endings": {
+    "act1_end": "米拉把芯片塞给你：「海伍德在洗货。你要么跟我一起把这条线掀了，要么现在就走。」"
+  }
+}

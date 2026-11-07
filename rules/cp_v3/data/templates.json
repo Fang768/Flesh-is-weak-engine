@@ -1,0 +1,1702 @@
+[
+  {
+    "name": "SOLO",
+    "source_page": 61,
+    "raw_title": "Edgerunner Template: SOLO",
+    "stats": {
+      "INT": 4,
+      "REF": 7,
+      "TECH": 3,
+      "DEX": 7,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 4,
+      "BODY": 7
+    },
+    "skills": [
+      {
+        "skill": "Handgun",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Automatic We apons",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Brawling",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Melee",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Neural Net (pg.185)",
+        "location": "I n t e r n a l",
+        "cost": 25
+      },
+      {
+        "item": "Ranged Combat Package (pg.186)",
+        "location": "I n t e r n a l",
+        "cost": 25
+      },
+      {
+        "item": "Combat Gauntlet (pg.187)",
+        "location": "L . A r m",
+        "cost": 17
+      }
+    ],
+    "perks": null,
+    "lifepath": "Armed with the best weapons and combat NuCybe, Solos are the com-"
+  },
+  {
+    "name": "MEDIA",
+    "source_page": 61,
+    "raw_title": "Edgerunner Template: MEDIA",
+    "stats": {
+      "INT": 7,
+      "REF": 5,
+      "TECH": 4,
+      "DEX": 4,
+      "COOL": 7,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 5,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Handgun",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Human Perc eption",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Persuasion & Fast Ta lk",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Neural Net (pg.185)",
+        "location": "I n t e r n a l",
+        "cost": 25
+      },
+      {
+        "item": "Media Package (pg.187)",
+        "location": "I n t e r n a l",
+        "cost": 18
+      },
+      {
+        "item": "Media Bracer (pg.187)",
+        "location": "L . A r m",
+        "cost": 12
+      }
+    ],
+    "perks": "Combat Sense +2, Favor +1 (for",
+    "lifepath": "Information brokers and masters of DataPool bandwidth, Medias live to"
+  },
+  {
+    "name": "TECH",
+    "source_page": 62,
+    "raw_title": "Edgerunner Template: TECH",
+    "stats": {
+      "INT": 7,
+      "REF": 5,
+      "TECH": 8,
+      "DEX": 4,
+      "COOL": 3,
+      "WILL": 4,
+      "STR": 4,
+      "CON": 5,
+      "MOVE": 5,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Handgun",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Basic Te ch",
+        "level": 4,
+        "chipped": false,
+        "cost": 8
+      },
+      {
+        "skill": "Ju ry Rig",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Neural Net (pg.185)",
+        "location": "I n t e r n a l",
+        "cost": 25
+      },
+      {
+        "item": "Techie Package (pg.186)",
+        "location": "I n t e r n a l",
+        "cost": 17
+      },
+      {
+        "item": "Tech Bracer (pg.187)",
+        "location": "L . A r m",
+        "cost": 12
+      },
+      {
+        "item": "Neural Net (pg.185)",
+        "location": "I n t e r n a l",
+        "cost": 25
+      },
+      {
+        "item": "Techie Package (pg.186)",
+        "location": "I n t e r n a l",
+        "cost": 22
+      }
+    ],
+    "perks": null,
+    "lifepath": "When you want to get it fixed, or just want to get it built, you need a Te c h ."
+  },
+  {
+    "name": "NETRUNNER",
+    "source_page": 62,
+    "raw_title": "Edgerunner Template: NETRUNNER",
+    "stats": {
+      "INT": 7,
+      "REF": 7,
+      "TECH": 5,
+      "DEX": 4,
+      "COOL": 4,
+      "WILL": 5,
+      "STR": 4,
+      "CON": 4,
+      "MOVE": 5,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Inte rf ace",
+        "level": 5,
+        "chipped": false,
+        "cost": 10
+      },
+      {
+        "skill": "Coding",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Handgun",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Brawling",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [],
+    "perks": null,
+    "lifepath": "The Net may be dead, but that doesn’t mean hacking died with it. The"
+  },
+  {
+    "name": "DIVEMASTER",
+    "source_page": 63,
+    "raw_title": "Reef Template: DIVEMASTER",
+    "stats": {
+      "INT": 4,
+      "REF": 7,
+      "TECH": 3,
+      "DEX": 7,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 4,
+      "BODY": 7
+    },
+    "skills": [
+      {
+        "skill": "Handgun",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Dive Te ch",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Karate",
+        "level": 3,
+        "chipped": false,
+        "cost": 6
+      },
+      {
+        "skill": "Melee",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "T-Net (pg.190)",
+        "location": "I n t e r n a l",
+        "cost": 40
+      },
+      {
+        "item": "High Speed Swimming (pg.256)",
+        "location": "T- F o r m",
+        "cost": 30
+      }
+    ],
+    "perks": null,
+    "lifepath": "Divemasters are the main underwater operatives of Reef, handling min-"
+  },
+  {
+    "name": "SUBJOCK",
+    "source_page": 63,
+    "raw_title": "Reef Template: SUBJOCK",
+    "stats": {
+      "INT": 5,
+      "REF": 6,
+      "TECH": 4,
+      "DEX": 6,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 5,
+      "BODY": 6
+    },
+    "skills": [
+      {
+        "skill": "Subjock",
+        "level": 5,
+        "chipped": false,
+        "cost": 10
+      },
+      {
+        "skill": "Heavy We apons",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Melee",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      }
+    ],
+    "outfit": [
+      {
+        "item": "T-Net (pg.190)",
+        "location": "I n t e r n a l",
+        "cost": 40
+      },
+      {
+        "item": "High Speed Swimming (pg.256)",
+        "location": "T- F o r m",
+        "cost": 15
+      }
+    ],
+    "perks": "Combat Sense +2, Blind / Submersible Operators), Direction Sense",
+    "lifepath": "Subjocks are the main operators of Reef’s underwater vehicles—cargo"
+  },
+  {
+    "name": "SHIFTER",
+    "source_page": 64,
+    "raw_title": "Reef Template: SHIFTER",
+    "stats": {
+      "INT": 7,
+      "REF": 5,
+      "TECH": 4,
+      "DEX": 4,
+      "COOL": 7,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 5,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Persuasion",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Stealth",
+        "level": 4,
+        "chipped": false,
+        "cost": 8
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Melee",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "T-Net (pg.190)",
+        "location": "I n t e r n a l",
+        "cost": 40
+      },
+      {
+        "item": "T-Net (pg.190)",
+        "location": "I n t e r n a l",
+        "cost": 40
+      },
+      {
+        "item": "Whaleboy T-Form (pg.198)",
+        "location": "T- F o r m",
+        "cost": 50
+      }
+    ],
+    "perks": null,
+    "lifepath": ": Shifters have elected to use their T-Form abilities to the max. Their love"
+  },
+  {
+    "name": "WHALEBOY",
+    "source_page": 64,
+    "raw_title": "Reef Template: WHALEBOY",
+    "stats": {
+      "INT": 4,
+      "REF": 5,
+      "TECH": 2,
+      "DEX": 5,
+      "COOL": 4,
+      "WILL": 4,
+      "STR": 8,
+      "CON": 7,
+      "MOVE": 3,
+      "BODY": 8
+    },
+    "skills": [
+      {
+        "skill": "Animal Handling",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Athletics",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Melee",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [],
+    "perks": "choose now), Direction Sense, High Pain",
+    "lifepath": "Whaleboys patrol the kelp fields and explore the open seas with whales,"
+  },
+  {
+    "name": "MECHAJOCK",
+    "source_page": 65,
+    "raw_title": "Desnai Template: MECHAJOCK",
+    "stats": {
+      "INT": 5,
+      "REF": 7,
+      "TECH": 3,
+      "DEX": 5,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 5,
+      "MOVE": 6,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Link",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Power Armor",
+        "level": 5,
+        "chipped": false,
+        "cost": 10
+      },
+      {
+        "skill": "Handgun",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Link Tap (pg.194)",
+        "location": "I n t e r n a l",
+        "cost": 5
+      },
+      {
+        "item": "Link Tap (pg.194)",
+        "location": "I n t e r n a l",
+        "cost": 5
+      },
+      {
+        "item": "Holobot (pg.196)",
+        "location": "C a r r i e d",
+        "cost": 47
+      }
+    ],
+    "perks": null,
+    "lifepath": "Mechajocks are the operators of heavy mecha in Desnai. They operate"
+  },
+  {
+    "name": "IMAGINATOR",
+    "source_page": 65,
+    "raw_title": "Desnai Template: IMAGINATOR",
+    "stats": {
+      "INT": 7,
+      "REF": 5,
+      "TECH": 8,
+      "DEX": 4,
+      "COOL": 3,
+      "WILL": 4,
+      "STR": 4,
+      "CON": 5,
+      "MOVE": 5,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Link",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Electronics",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Mecha Te ch",
+        "level": 5,
+        "chipped": false,
+        "cost": 10
+      },
+      {
+        "skill": "Brawling",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [],
+    "perks": null,
+    "lifepath": "Imaginators are the technicians and creators of Desnai. They are not only"
+  },
+  {
+    "name": "IDOL",
+    "source_page": 66,
+    "raw_title": "Desnai Template: IDOL",
+    "stats": {
+      "INT": 7,
+      "REF": 5,
+      "TECH": 4,
+      "DEX": 4,
+      "COOL": 7,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 5,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Link",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Pe rf orm",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Persuasion & Fast Ta lk",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Brawling",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Link Tap (pg.194)",
+        "location": "I n t e r n a l",
+        "cost": 5
+      },
+      {
+        "item": "Secreta ry (pg.196)",
+        "location": "C a r r i e d",
+        "cost": 52
+      },
+      {
+        "item": "Holobot (pg.196)",
+        "location": "C a r r i e d",
+        "cost": 47
+      },
+      {
+        "item": "Link Tap (pg.194)",
+        "location": "I n t e r n a l",
+        "cost": 5
+      },
+      {
+        "item": "o r Bodyguard (pg.196) [choose]",
+        "location": "NA",
+        "cost": 153
+      }
+    ],
+    "perks": null,
+    "lifepath": "Idols evolved from Park entertainers. Skilled performers, they are often fol-"
+  },
+  {
+    "name": "SECURITY OP",
+    "source_page": 66,
+    "raw_title": "Desnai Template: SECURITY O P",
+    "stats": {
+      "INT": 4,
+      "REF": 8,
+      "TECH": 3,
+      "DEX": 5,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 5,
+      "MOVE": 6,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Link",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Handgun",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Martial Arts",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Melee",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [],
+    "perks": "Combat Sense +2, Favor +1 (with a Park",
+    "lifepath": "Security Ops are the muscle of Desnai, protecting employees, Idols and"
+  },
+  {
+    "name": "SCOUT",
+    "source_page": 67,
+    "raw_title": "Roller Template: SCOUT",
+    "stats": {
+      "INT": 5,
+      "REF": 6,
+      "TECH": 4,
+      "DEX": 6,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 5,
+      "BODY": 6
+    },
+    "skills": [
+      {
+        "skill": "Driving",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "A rc h e ry or Handgun (choose)",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Rifle or Melee (choose)",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Adaptive Healing (pg.200)",
+        "location": "N a n o D o p e",
+        "cost": 40
+      }
+    ],
+    "perks": null,
+    "lifepath": "Scouts are the Long Riders and Far Explorers of Rolling State. They find"
+  },
+  {
+    "name": "PANZERBOY",
+    "source_page": 67,
+    "raw_title": "Roller Template: PANZERBOY",
+    "stats": {
+      "INT": 5,
+      "REF": 7,
+      "TECH": 3,
+      "DEX": 5,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 5,
+      "MOVE": 6,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Driving",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Gunne ry",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Rifle or Handgun (choose)",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Adaptive Healing (pg.200)",
+        "location": "N a n o D o p e",
+        "cost": 40
+      }
+    ],
+    "perks": "Combat Sense +2, Direction / Sense, Common Sense / Combat Sense +2, Membership",
+    "lifepath": "Panzerboys are the heavy vehicle drivers of Rolling State. They specialize in"
+  },
+  {
+    "name": "WARRIOR",
+    "source_page": 68,
+    "raw_title": "Roller Template: WARRIOR",
+    "stats": {
+      "INT": 4,
+      "REF": 7,
+      "TECH": 3,
+      "DEX": 7,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 4,
+      "BODY": 7
+    },
+    "skills": [
+      {
+        "skill": "Driving",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Rifle or Handgun (choose)",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Melee",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Adaptive Healing (pg.200)",
+        "location": "N a n o D o p e",
+        "cost": 40
+      },
+      {
+        "item": "Adaptive Healing (pg.200)",
+        "location": "N a n o D o p e",
+        "cost": 40
+      },
+      {
+        "item": "Shaman ’s Skills (pg.201)",
+        "location": "N a n o D o p e",
+        "cost": 40
+      }
+    ],
+    "perks": null,
+    "lifepath": "Warriors are the fighters and defenders of Rolling State. They drive the"
+  },
+  {
+    "name": "SHAMAN",
+    "source_page": 68,
+    "raw_title": "Roller Template: SHAMAN",
+    "stats": {
+      "INT": 7,
+      "REF": 5,
+      "TECH": 7,
+      "DEX": 4,
+      "COOL": 4,
+      "WILL": 5,
+      "STR": 4,
+      "CON": 4,
+      "MOVE": 5,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Handgun or Melee (choose)",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "First Aid",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Education",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      }
+    ],
+    "outfit": [],
+    "perks": "Combat Sense +2, Direction / Sense, High Pain Threshold, Blind Reaction / Common Sense, Speed Reader",
+    "lifepath": "Shamen are the leaders and knowledge gatherers of Rolling State. They"
+  },
+  {
+    "name": "CITY FIGHTER",
+    "source_page": 69,
+    "raw_title": "Rip Template: CITY F I G H T E R",
+    "stats": {
+      "INT": 4,
+      "REF": 8,
+      "TECH": 3,
+      "DEX": 5,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 5,
+      "MOVE": 6,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Handgun",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Animal Handling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Animal Kung Fu",
+        "level": 5,
+        "chipped": false,
+        "cost": 15
+      },
+      {
+        "skill": "Melee",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Enzyme Bonding (pg.205)",
+        "location": "I n t e r n a l",
+        "cost": 5
+      },
+      {
+        "item": "Raptile (pg.206) or Streaker (pg. 206)",
+        "location": "N A",
+        "cost": 105
+      }
+    ],
+    "perks": null,
+    "lifepath": "City Fighters are the noble knight-errants of the Drift Cities. Descended"
+  },
+  {
+    "name": "TRADER",
+    "source_page": 69,
+    "raw_title": "Rip Template: TRADER",
+    "stats": {
+      "INT": 7,
+      "REF": 5,
+      "TECH": 4,
+      "DEX": 4,
+      "COOL": 7,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 5,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Handgun",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Human Perc eption",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Brawling",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Tr ading",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Enzyme Bonding (pg.205)",
+        "location": "I n t e r n a l",
+        "cost": 5
+      },
+      {
+        "item": "Gold Bug (pg.207)",
+        "location": "N A",
+        "cost": 65
+      }
+    ],
+    "perks": "Combat Sense +3, Authority +3",
+    "lifepath": ""
+  },
+  {
+    "name": "BEASTMASTER",
+    "source_page": 70,
+    "raw_title": "Rip Template: B E A S T M A S T E R",
+    "stats": {
+      "INT": 4,
+      "REF": 5,
+      "TECH": 3,
+      "DEX": 8,
+      "COOL": 4,
+      "WILL": 4,
+      "STR": 6,
+      "CON": 5,
+      "MOVE": 4,
+      "BODY": 7
+    },
+    "skills": [
+      {
+        "skill": "Animal Handling",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Athletics",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Melee",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Enzyme Bonding (pg.205)",
+        "location": "I n t e r n a l",
+        "cost": 5
+      }
+    ],
+    "perks": null,
+    "lifepath": "Beastmasters are collectors of bioform “pets”, often keeping up to a dozen"
+  },
+  {
+    "name": "SURFRIDER",
+    "source_page": 70,
+    "raw_title": "Rip Template: SURFRIDER",
+    "stats": {
+      "INT": 4,
+      "REF": 5,
+      "TECH": 2,
+      "DEX": 5,
+      "COOL": 4,
+      "WILL": 4,
+      "STR": 8,
+      "CON": 7,
+      "MOVE": 3,
+      "BODY": 8
+    },
+    "skills": [
+      {
+        "skill": "Animal Handling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Athletics",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Brawling",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Melee",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Enzyme Bonding (pg.205)",
+        "location": "I n t e r n a l",
+        "cost": 5
+      }
+    ],
+    "perks": "Sense / Sense, Night Vision",
+    "lifepath": "S u rfriders are the far travellers of the Cities, often journeying over miles of"
+  },
+  {
+    "name": "TRANSPORTER",
+    "source_page": 71,
+    "raw_title": "Cee-Metal Template: TRANSPORTER",
+    "stats": {
+      "INT": 5,
+      "REF": 6,
+      "TECH": 4,
+      "DEX": 6,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 5,
+      "BODY": 6
+    },
+    "skills": [
+      {
+        "skill": "Handgun",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Heavy We apons",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Pilot (Fixed Wing) or Driving",
+        "level": 5,
+        "chipped": false,
+        "cost": 10
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Biopod(pg.210)",
+        "location": "M o b i l e",
+        "cost": 45
+      }
+    ],
+    "perks": null,
+    "lifepath": "Transporters specialize in getting people and things where they need to"
+  },
+  {
+    "name": "PROTECTOR",
+    "source_page": 71,
+    "raw_title": "Cee-Metal Template: PROTECTOR",
+    "stats": {
+      "INT": 4,
+      "REF": 7,
+      "TECH": 3,
+      "DEX": 7,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 4,
+      "BODY": 7
+    },
+    "skills": [
+      {
+        "skill": "Handgun",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Automatic We apons",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Melee or Hvy Weapons (choose)",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Biopod(pg.210)",
+        "location": "M o b i l e",
+        "cost": 45
+      }
+    ],
+    "perks": "Direction Sense, Ambidexterity, / Combat Sense +2, Authority +2",
+    "lifepath": "Protectors are the law enforcement and civilian protection arm of Cee"
+  },
+  {
+    "name": "WISEMAN",
+    "source_page": 72,
+    "raw_title": "Cee-Metal Template: WISEMAN",
+    "stats": {
+      "INT": 7,
+      "REF": 5,
+      "TECH": 7,
+      "DEX": 4,
+      "COOL": 4,
+      "WILL": 5,
+      "STR": 4,
+      "CON": 4,
+      "MOVE": 5,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Libra ry Searc h",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "First Aid",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Brawling",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      },
+      {
+        "skill": "Education",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      }
+    ],
+    "outfit": [
+      {
+        "item": "Biopod(pg.210)",
+        "location": "M o b i l e",
+        "cost": 45
+      },
+      {
+        "item": "Biopod(pg.210)",
+        "location": "M o b i l e",
+        "cost": 45
+      },
+      {
+        "item": "Neo Enforcer (pg.212)",
+        "location": "B o d y s h e l l",
+        "cost": 108
+      }
+    ],
+    "perks": null,
+    "lifepath": "Wisemen are the information gatherers and “thinkers” of Cee-Metal. They"
+  },
+  {
+    "name": "DRAGOON",
+    "source_page": 72,
+    "raw_title": "Cee-Metal Template: DRAGOON",
+    "stats": {
+      "INT": 4,
+      "REF": 5,
+      "TECH": 2,
+      "DEX": 5,
+      "COOL": 4,
+      "WILL": 4,
+      "STR": 8,
+      "CON": 7,
+      "MOVE": 3,
+      "BODY": 8
+    },
+    "skills": [
+      {
+        "skill": "Heavy We apons",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Automatic We apons",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Brawling",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Melee",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      }
+    ],
+    "outfit": [],
+    "perks": "Common Sense, Speed Reader, Authority +2 / Combat Sense +3, High Pain",
+    "lifepath": "Dragoons are the heavy combat units of Cee-Metal. Their configs are opti-"
+  },
+  {
+    "name": "COMBAT FIGHTER",
+    "source_page": 73,
+    "raw_title": "Unaligned Template: Combat Fighter",
+    "stats": {
+      "INT": 4,
+      "REF": 7,
+      "TECH": 3,
+      "DEX": 7,
+      "COOL": 5,
+      "WILL": 4,
+      "STR": 5,
+      "CON": 4,
+      "MOVE": 4,
+      "BODY": 7
+    },
+    "skills": [
+      {
+        "skill": "Handgun",
+        "level": 4,
+        "chipped": false,
+        "cost": 4
+      },
+      {
+        "skill": "Automatic We apons",
+        "level": 5,
+        "chipped": false,
+        "cost": 5
+      },
+      {
+        "skill": "Brawling",
+        "level": 2,
+        "chipped": false,
+        "cost": 2
+      }
+    ],
+    "outfit": [],
+    "perks": null,
+    "lifepath": "Combat Fighters are the “masterless samurai” of the Dark Future. With no"
+  },
+  {
+    "name": "STREETDEALER",
+    "source_page": 73,
+    "raw_title": "Unaligned Template: Streetdealer",
+    "stats": {
+      "INT": 7,
+      "REF": 5,
+      "TECH": 7,
+      "DEX": 4,
+      "COOL": 4,
+      "WILL": 5,
+      "STR": 4,
+      "CON": 4,
+      "MOVE": 5,
+      "BODY": 5
+    },
+    "skills": [
+      {
+        "skill": "Melee",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Dodge/Escape",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      },
+      {
+        "skill": "Aw areness",
+        "level": 3,
+        "chipped": false,
+        "cost": 3
+      }
+    ],
+    "outfit": [],
+    "perks": "Favor +3 (decide what it is now / Favor +3 (decide what it is now",
+    "lifepath": "Streetdealers are hustlers and fixers unaligned with any AltCult. With no"
+  }
+]

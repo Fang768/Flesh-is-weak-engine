@@ -1,0 +1,71 @@
+# ── 虚拟环境 ────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Python 缓存 / 测试缓存 ──────────────────────────────────
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.pytest-of-*/
+pytest-of-*/
+
+# ── 凭据：绝不入库 ──────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ── 运行时数据与日志 ────────────────────────────────────────
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.log
+*.log.[0-9]*
+logs/
+
+# ── 第三方运行时（体积大、含 QQ 登录态）─────────────────────
+nexus-bot/deploy/
+nexus-bot/napcat/
+
+# ── 备份残留 ────────────────────────────────────────────────
+nexus-backup-*/
+backups/
+*.bak
+
+# ── 规则书原件 / 切图 / 全文 / OCR / 整理稿：版权内容，不入库 ──
+rules/_pages/
+*.pdf
+*.docx
+rules/*/raw/
+rules/*/ocr/
+rules/_ocrtest/
+rules/_ocrtext/
+rules/ocr_*.log
+rules/_tpl.md
+rules/README.md
+rules/cp_v3/data/cyber_raw.txt
+rules/cp_v3/data/perks_raw.txt
+rules/cp_v3/data/weapon_desc_en.json
+rules/cp_v3/data/weapons_table.md
+rules/red/data/playbook_opera.txt
+rules/cpr_easy/docs/
+archive/
+
+# ── 给 Agent 看的说明文档（不是项目本体）────────────────────
+Agent/
+resources/
+/MANIFEST.json
+/SCAN_REPORT.json
+/SOURCE_INTEGRITY.json
+/TEST_RESULTS.md
+
+# ── 系统文件 ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

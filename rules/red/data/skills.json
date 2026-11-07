@@ -1,0 +1,386 @@
+[
+ {
+  "cat": "感官",
+  "zh": "专注",
+  "stat": "WILL",
+  "cost2": false
+ },
+ {
+  "cat": "感官",
+  "zh": "藏匿&揭示物体",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "感官",
+  "zh": "唇语",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "感官",
+  "zh": "觉察",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "感官",
+  "zh": "追踪",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "体魄",
+  "zh": "运动",
+  "stat": "DEX",
+  "cost2": false
+ },
+ {
+  "cat": "体魄",
+  "zh": "柔术",
+  "stat": "DEX",
+  "cost2": false
+ },
+ {
+  "cat": "体魄",
+  "zh": "舞蹈",
+  "stat": "DEX",
+  "cost2": false
+ },
+ {
+  "cat": "体魄",
+  "zh": "忍耐",
+  "stat": "WILL",
+  "cost2": false
+ },
+ {
+  "cat": "体魄",
+  "zh": "折磨&药物耐受",
+  "stat": "WILL",
+  "cost2": false
+ },
+ {
+  "cat": "体魄",
+  "zh": "潜行",
+  "stat": "DEX",
+  "cost2": false
+ },
+ {
+  "cat": "操控",
+  "zh": "地面载具驾驶",
+  "stat": "REF",
+  "cost2": false
+ },
+ {
+  "cat": "操控",
+  "zh": "空中载具驾驶",
+  "stat": "REF",
+  "cost2": true
+ },
+ {
+  "cat": "操控",
+  "zh": "海上载具驾驶",
+  "stat": "REF",
+  "cost2": false
+ },
+ {
+  "cat": "操控",
+  "zh": "骑乘",
+  "stat": "REF",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "会计学",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "驯兽",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "官场世故",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "商学",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "写作",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "犯罪学",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "密码学",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "推理",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "教育通识",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "赌博",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "口语表达",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "图书馆检索",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "地方专家",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "科学",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "战术",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "教育",
+  "zh": "野外生存",
+  "stat": "INT",
+  "cost2": false
+ },
+ {
+  "cat": "战斗",
+  "zh": "搏击",
+  "stat": "DEX",
+  "cost2": false
+ },
+ {
+  "cat": "战斗",
+  "zh": "闪避",
+  "stat": "DEX",
+  "cost2": false
+ },
+ {
+  "cat": "战斗",
+  "zh": "武术",
+  "stat": "DEX",
+  "cost2": true
+ },
+ {
+  "cat": "战斗",
+  "zh": "近战武器",
+  "stat": "DEX",
+  "cost2": false
+ },
+ {
+  "cat": "表演",
+  "zh": "扮演",
+  "stat": "COOL",
+  "cost2": false
+ },
+ {
+  "cat": "表演",
+  "zh": "乐器演奏",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "远程武器",
+  "zh": "弓术",
+  "stat": "REF",
+  "cost2": false
+ },
+ {
+  "cat": "远程武器",
+  "zh": "自动武器",
+  "stat": "REF",
+  "cost2": true
+ },
+ {
+  "cat": "远程武器",
+  "zh": "手枪",
+  "stat": "REF",
+  "cost2": false
+ },
+ {
+  "cat": "远程武器",
+  "zh": "重武器",
+  "stat": "REF",
+  "cost2": true
+ },
+ {
+  "cat": "远程武器",
+  "zh": "长枪射击",
+  "stat": "REF",
+  "cost2": false
+ },
+ {
+  "cat": "社交",
+  "zh": "贿赂",
+  "stat": "COOL",
+  "cost2": false
+ },
+ {
+  "cat": "社交",
+  "zh": "审讯",
+  "stat": "COOL",
+  "cost2": false
+ },
+ {
+  "cat": "社交",
+  "zh": "说服",
+  "stat": "COOL",
+  "cost2": false
+ },
+ {
+  "cat": "社交",
+  "zh": "个人装扮",
+  "stat": "COOL",
+  "cost2": false
+ },
+ {
+  "cat": "社交",
+  "zh": "街头智慧",
+  "stat": "COOL",
+  "cost2": false
+ },
+ {
+  "cat": "社交",
+  "zh": "交易",
+  "stat": "COOL",
+  "cost2": false
+ },
+ {
+  "cat": "社交",
+  "zh": "服饰&风格",
+  "stat": "COOL",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "空中载具技术",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "基础技术",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "赛博技术",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "爆破学",
+  "stat": "TECH",
+  "cost2": true
+ },
+ {
+  "cat": "技术",
+  "zh": "电子/安全技术",
+  "stat": "TECH",
+  "cost2": true
+ },
+ {
+  "cat": "技术",
+  "zh": "急救",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "伪造",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "地面载具技术",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "绘画/速写/雕刻",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "强化急救",
+  "stat": "TECH",
+  "cost2": true
+ },
+ {
+  "cat": "技术",
+  "zh": "摄影/摄像",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "开锁",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "扒窃",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "海洋载具技术",
+  "stat": "TECH",
+  "cost2": false
+ },
+ {
+  "cat": "技术",
+  "zh": "武器技术",
+  "stat": "TECH",
+  "cost2": false
+ }
+]

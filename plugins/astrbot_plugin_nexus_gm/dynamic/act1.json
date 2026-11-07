@@ -1,0 +1,26 @@
+{
+ "id":"act1-chip", "title":"一枚存储芯片", "rules_version":"3.2",
+ "immutable_public_facts":["2077年秋，独立于官方主线","初始接洽地点：沃森歌舞伎；不限制玩家之后自愿离开","委托人米拉·克罗","死去快递员的储物柜位置公开","承诺报酬每人600€$，预付每人100€$；承诺不等于已支付"],
+ "npcs":{
+  "mira":{"name":"米拉·克罗","public_goal":"委托取回芯片","motivation":"希望证据被完整保留","resources":"委托与人脉","red_line":"不允许未经核实把玩家或第三方定为凶手","relationships":"委托人；其他关系未公开","autonomous_moves":["询问团队是否接下委托","玩家拒绝时保留联系，不强迫接任务","已经帮忙时表达感谢并等候可追溯交付"]},
+  "custodian":{"name":"储物柜管理员","public_goal":"维持正常业务","motivation":"希望流程与交易清楚","resources":"储物柜钥匙","red_line":"不无条件免费交出钥匙","relationships":"场地管理员","autonomous_moves":["向有需要的访客说明购买钥匙的条件","玩家暂不交易时继续正常工作"]}
+ },
+ "conflicts":["团队可以接委托，也可以拒绝、调查缘由或提出新的目标","取回证据与保留自身安全之间的取舍","芯片访问不代表已经知道幕后真相"],
+ "nodes":{
+  "contact":{"public":"歌舞伎的公开接洽；玩家可问清条件、拒绝或改换目标","requires":[]},
+  "locker":{"public":"公开位置的储物柜","requires":[]},
+  "camera":{"public":"附近存在摄像头记录这条线索来源","requires":["合法访问记录的依据；未细化门槛须临场裁定并先审核"]},
+  "account":{"public":"账户记录是一条可能的证据来源","requires":["合法取得记录的依据；不能凭询问直接获取"]}
+ },
+ "gates":{
+  "unlock":{"attribute":"TECH","skill":"开锁","dv":14,"source":"第一幕储物柜开锁","failure":"alert_plus_one"},
+  "buy_key":{"attribute":"COOL","skill":"交涉","dv":14,"cost":100,"source":"第一幕向管理员交涉并购买钥匙","failure":"alert_plus_one"}
+ },
+ "clues":{
+  "chip":{"requires":"chip_access_and_explicit_read","text":"Vesper / 03:17 / Santo Domingo"},
+  "camera":{"requires":"approved_camera_access","text":"摄像头记录中有伪装成六街帮的安保"},
+  "account":{"requires":"approved_account_access","text":"快递员账户有来自Vesper的款项"}
+ },
+ "consequence_policy":["拒绝任务不等于失败，不扣XP或强制改名声","开锁或钥匙交涉失败，警戒+1；不删掉已取得线索","普通NPC按已知目标回应；有机械影响的动作先提案","没有实际时间依据，不把玩家离线时间变成敌人自动攻击","任何一条实际取得的线索可让本幕继续，不要求固定顺序"],
+ "source":"TRPG_Act1 + TRPG_GM_Story 第一幕公开机械条件；不向叙述模型提供后续幕秘密"
+}

@@ -1,0 +1,332 @@
+{
+ "_meta": {
+  "source": "书 p177–180 武器总表",
+  "note": "note 是给玩家看的一句话风味描述"
+ },
+ "items": {
+  "ARMALITE 44": {
+   "zh": "阿玛莱特 44",
+   "note": "1998 年美军手枪选型的落选方案，结实的 .44 大口径手枪。"
+  },
+  "BUDGETARMS AUTO 3": {
+   "zh": "平价火力 Auto 3",
+   "note": "便宜、威力大、偶尔炸膛——你还想要什么？"
+  },
+  "BUDGETARMS C-13": {
+   "zh": "平价火力 C-13",
+   "note": "廉价袖珍手枪，适合藏在袖口或手袋里。"
+  },
+  "C.O.P. .357 DERRINGER": {
+   "zh": "C.O.P. .357 短管手枪",
+   "note": "执法部门的备用隐藏枪，旋转击针设计，体积小易藏。"
+  },
+  "COLT .38 DETECTIVE": {
+   "zh": "柯尔特 .38 侦探型",
+   "note": "最常见的警用手枪，可靠性极高，至今仍在流通。"
+  },
+  "COLT .45 “PEACEMAKER ”": {
+   "zh": "柯尔特 .45“和平缔造者”",
+   "note": "「征服西部的那把枪」，单动，开火前必须先上膛。"
+  },
+  "COLT AMT MODEL 2000": {
+   "zh": "柯尔特 AMT 2000",
+   "note": "大口径半自动，军警两用的可靠选择。"
+  },
+  "DAI LUNG CYBERMAG 15": {
+   "zh": "大龙 赛博弹匣 15",
+   "note": "香港廉价仿制品，混混们的最爱。"
+  },
+  "DAI LUNG STREETMASTER": {
+   "zh": "大龙 街头霸主",
+   "note": "又一款大龙廉价货，专为街头打造。"
+  },
+  "FEDERATED ARMS X-22": {
+   "zh": "联邦军械 X-22",
+   "note": "到处都有的「一次性聚合物」塑料手枪，还有设计师配色。"
+  },
+  "FEDERATED ARMS XJ-9MM": {
+   "zh": "联邦军械 XJ-9mm",
+   "note": "结实的独狼用枪，美军与 E.C.C. 的制式副武器。"
+  },
+  "LLAMA COMMANCHE": {
+   "zh": "拉玛 科曼奇",
+   "note": "优秀的 .44 左轮，家庭防卫与警用皆宜。"
+  },
+  "MILITECH ARMS AVENGER": {
+   "zh": "军用科技 复仇者",
+   "note": "做工扎实、射程与精度俱佳的自动手枪。"
+  },
+  "MISSILEGUN": {
+   "zh": "导弹枪",
+   "note": "下一代陀螺喷射手枪，智能爆炸弹头自动寻的（50%）。"
+  },
+  "PEACEMAKER": {
+   "zh": "和平缔造者",
+   "note": "专为穿甲设计的高能弹，六发，但每一发都算数。"
+  },
+  "S&W COMBAT MAGNUM": {
+   "zh": "史密斯威森 战斗马格南",
+   "note": "美国边境巡逻队用枪，小框架、动作可靠。"
+  },
+  "STERNMEYER TYPE 35": {
+   "zh": "施特恩迈尔 35 型",
+   "note": "坚固可靠、停止作用优秀，地道的 E.C.C. 产品。"
+  },
+  "BUSHMASTER": {
+   "zh": "布什马斯特",
+   "note": "用 M-16A1 弹匣的犊牛式冲锋枪，单手可射。"
+  },
+  "FEDERATED ARMS TECH ASSAULT II": {
+   "zh": "联邦军械 技术突击 II",
+   "note": "技术突击 I 的升级版：弹匣更大、火力更猛、不再熔化。"
+  },
+  "H&K MP-2013": {
+   "zh": "黑克勒-科赫 MP-2013",
+   "note": "MP5K 经典款的现代化改型，内置消音器。"
+  },
+  "H&K MP5 & MP5K": {
+   "zh": "黑克勒-科赫 MP5 / MP5K",
+   "note": "零件通用的经典冲锋枪，MP5K 是紧凑型，带消音。"
+  },
+  "H&K MPK-11": {
+   "zh": "黑克勒-科赫 MPK-11",
+   "note": "独狼最常用的枪，可改成突击卡宾型或榴弹发射型。"
+  },
+  "H&K MPK-9": {
+   "zh": "黑克勒-科赫 MPK-9",
+   "note": "轻型复合材料冲锋枪，带一体式瞄具。"
+  },
+  "INGRAM MAC 10": {
+   "zh": "英格拉姆 MAC 10",
+   "note": "廉价可靠的制式冲锋枪，全自动时极难控制。"
+  },
+  "INGRAM MAC 14": {
+   "zh": "英格拉姆 MAC 14",
+   "note": "MAC-10 的更新版，复合材料枪身与圆柱弹匣。"
+  },
+  "MINAMI 10": {
+   "zh": "南 10",
+   "note": "标准保安武器，曾遍布全球，如今归荒坂保安所有。"
+  },
+  "STERNMEYER SMG 21": {
+   "zh": "施特恩迈尔 SMG 21",
+   "note": "反恐部队与精神病小队的常用装备。"
+  },
+  "THOMPSON M1": {
+   "zh": "汤普森 M1",
+   "note": "二战美军制式冲锋枪，坚固、可靠、易上手。"
+  },
+  "UZI": {
+   "zh": "乌兹",
+   "note": "以色列设计的可靠出口武器，安保、特勤与恐怖分子都在用。"
+  },
+  "UZI MINIAUTO 9": {
+   "zh": "乌兹 迷你自动 9",
+   "note": "旋转弹匣供弹，全自动时很难控制。"
+  },
+  "VZ61 SKORPION": {
+   "zh": "Vz61 蝎式",
+   "note": "华约制式，世界上最小的军用冲锋枪，易消音、可挂肩。"
+  },
+  "KANG RAPID ASSAULT SHOT 12": {
+   "zh": "康 速射突击霰弹 12",
+   "note": "高威力自动霰弹枪。"
+  },
+  "STERNMEYER STAKEOUT 10": {
+   "zh": "施特恩迈尔 蹲守 10",
+   "note": "轻型执法霰弹枪，市警常用。"
+  },
+  "AK 47, AKM, AKMS": {
+   "zh": "AK-47 / AKM / AKMS",
+   "note": "世界最知名的突击步枪，粗糙但可靠。"
+  },
+  "AKR-20 M EDIUM ASSAULT": {
+   "zh": "AKR-20 中型突击步枪",
+   "note": "AKM 的塑料/碳纤维改型，苏东阵营仍广泛使用。"
+  },
+  "FN-FAL": {
+   "zh": "FN FAL 战斗步枪",
+   "note": "北约制式战斗步枪，比利时 FN 出品，被 90 多个国家用过。"
+  },
+  "FN-RAL H EAVY ASSAULT RIFLE": {
+   "zh": "FN-RAL 重型突击步枪",
+   "note": "北约制式战场步枪，犊牛式设计，折叠枪托。"
+  },
+  "KALISHNIKOV A-80 HVY. ASSAULT RIFLE": {
+   "zh": "卡拉什尼科夫 A-80 重型突击步枪",
+   "note": "苏联后撤型号，改进瞄具并用复合材料减重。"
+  },
+  "M-16A & M-16A2": {
+   "zh": "M-16A / M-16A2",
+   "note": "1960 年代起的美军制式步枪，精度高、射速惊人。"
+  },
+  "MILITECH RONIN LIGHT ASSAULT": {
+   "zh": "军用科技 浪人 轻型突击步枪",
+   "note": "轻量全能改型，性能接近 M-16B。"
+  },
+  "NANO ACCELERATOR RIFLE": {
+   "zh": "纳米加速步枪",
+   "note": "太阳能（极少数为核动力）轨道炮，能打穿任何铁磁材料。"
+  },
+  "STYER AUG": {
+   "zh": "施泰尔 AUG",
+   "note": "犊牛式，高科技塑料与铝合金，内置瞄准镜。"
+  },
+  "WINCHESTER M70": {
+   "zh": "温彻斯特 M70",
+   "note": "基础狩猎步枪，猎鹿用。"
+  },
+  "14MM ANTITANK RIFLE": {
+   "zh": "14mm 反坦克步枪",
+   "note": "肩扛或脊挂式反坦克武器。"
+  },
+  "20MM RIFLE (VEHICLE MOUNTED)": {
+   "zh": "20mm 步枪（车载）",
+   "note": "相当于机甲级狙击步枪，射程远、后劲足。"
+  },
+  "4MM RAILGUN (VEHICLE MOUNTED)": {
+   "zh": "4mm 电磁炮（车载）",
+   "note": "高速发射 15g 弹丸，适合打轻型载具。"
+  },
+  "BARRETT-KANG LIGHT 20MM": {
+   "zh": "巴雷特-康 轻型 20mm",
+   "note": "赛博精神病猎人的最爱，2 米内一枪毙命。"
+  },
+  "C-6 \"FLATFIRE \" PLASTIC EXPLOSIVE": {
+   "zh": "C-6“平射”塑性炸药",
+   "note": "塑料炸药块，可用定时器、绊线或信号引爆。"
+  },
+  "GRENADE LAUNCHERS": {
+   "zh": "榴弹发射器",
+   "note": "可挂在突击步枪下或手持，射程 225m，与军用科技 RPG-A 不通用。"
+  },
+  "KENSHIRI ADACHI F-253 FLAMETHROWER": {
+   "zh": "健厜-足立 F-253 喷火器",
+   "note": "液态凝固汽油喷射器，背挂式，笨重但致命。"
+  },
+  "LAW 4 ROCKET": {
+   "zh": "LAW 4 火箭筒",
+   "note": "四发反轻装甲火箭弹发射器。"
+  },
+  "MECHA SCALE MONOSWORD": {
+   "zh": "机甲级单分子剑",
+   "note": "为机甲设计的大型单分子刃。"
+  },
+  "MILITECH RPG": {
+   "zh": "军用科技 RPG",
+   "note": "肩扛式火箭推进榴弹发射器。"
+  },
+  "MINE (ALL TYPES )": {
+   "zh": "地雷（全类型）",
+   "note": "定时、绊线、信号或动感引爆。"
+  },
+  "ARC THROWER": {
+   "zh": "电弧投射器",
+   "note": "U 形手持装置，释放两道强电弧；对 C-金属单位额外 +4D6。"
+  },
+  "AVANTE P-1135 NEEDLEGUN": {
+   "zh": "阿万特 P-1135 针枪",
+   "note": "轻型塑料压缩气枪，可装药或毒物。"
+  },
+  "EAGLETECH \"STRYKER \" CROSSBOW": {
+   "zh": "鹰技“打击者”弩",
+   "note": "塑料与双金属弩，安静、致命。"
+  },
+  "EAGLETECH \"TOMCAT\" COMPOUND BOW": {
+   "zh": "鹰技“公猫”复合弓",
+   "note": "平衡稳定的复合弓，无声且致命。"
+  },
+  "ENERTEX AKM P OWER SQUIRT": {
+   "zh": "埃纳泰克斯 AKM 动力喷射枪",
+   "note": "气动喷射枪，可注入药物或毒物。"
+  },
+  "HAZER": {
+   "zh": "迷雾枪",
+   "note": "大型手炮，射出冷冻催眠气弹，命中后炸成气团。"
+  },
+  "HOWLER": {
+   "zh": "嚎叫者",
+   "note": "造成剧痛与牙齿共振，使目标无法活动（视为 Stun）。"
+  },
+  "MILITECH ELECTRONICS HAND TASER": {
+   "zh": "军用科技电子 手持电击器",
+   "note": "手电筒大小的电击器，贴身一 zap。"
+  },
+  "NELSPOT \"WOMBAT\" AIRPISTOL": {
+   "zh": "内尔斯波特“袋熊”气手枪",
+   "note": "可装酸液、漆、药物或毒物的彩弹枪。"
+  },
+  "SCRAMBLER": {
+   "zh": "神经扰乱器",
+   "note": "短程电击武器，可切换眩晕或致死。"
+  },
+  "SONIC": {
+   "zh": "声波枪",
+   "note": "发射聚焦超声波，撕裂血肉、震碎骨骼。"
+  },
+  "SPLINTERGUN": {
+   "zh": "裂片枪",
+   "note": "旋转飞轮高速甩出超硬针片。"
+  },
+  "TECHTRONICA 15 MICROWAVER": {
+   "zh": "高科军工 15 微波枪",
+   "note": "手电筒大小的微波发射器。"
+  },
+  "TORPEDO SPEAR": {
+   "zh": "鱼雷长矛",
+   "note": "2 米长矛，矛头装电容电击，50% 自动寻的。"
+  },
+  "BLADEBUSTER": {
+   "zh": "破刃者",
+   "note": "剑柄内藏手枪，可朝对手刀刃开火。"
+  },
+  "DUO KATANA": {
+   "zh": "双刃太刀",
+   "note": "1 米长杆，两端各一单分子刃，可当棍也可当刀。"
+  },
+  "FIGHTING KNIFE": {
+   "zh": "格斗刀",
+   "note": "一把大刀，用来切东西。"
+  },
+  "KENDACHI MONOKATANA®": {
+   "zh": "健立 单分子武士刀",
+   "note": "日本“短刀”风格的单分子晶刃，极其锋利。"
+  },
+  "KENDACHI MONOKNIFE®": {
+   "zh": "健立 单分子刀",
+   "note": "单分子刃，加价 100 可做成薙刀形。"
+  },
+  "MONOFISTS": {
+   "zh": "单分子拳套",
+   "note": "加固指虎，带单分子匕首。"
+  },
+  "POWERSWORD :": {
+   "zh": "动力剑",
+   "note": "类似破刃者，但刃口带振动刃，几乎能切穿一切。"
+  },
+  "SHOK-KNUCKLES": {
+   "zh": "电击指虎",
+   "note": "带电指虎，可切换为致死（2D6），耗电翻倍。"
+  },
+  "STUN STAVE": {
+   "zh": "电击棍",
+   "note": "电击指虎的棍版，可切换致死（4D6）。"
+  },
+  "STUN TONFA": {
+   "zh": "电击拐",
+   "note": "电击指虎的拐版，可切换致死（3D6）。"
+  },
+  "BFG ( B ALLISTIC FLECHETTE GUN)": {
+   "zh": "BFG 弹道飞镖枪",
+   "note": "手持 30mm 爆炸弹，相当于轻型反坦克弹。"
+  },
+  "FABFG ( FULL ASSAULT BALLISTIC FLECHETTE GUN)": {
+   "zh": "FABFG 全自动弹道飞镖枪",
+   "note": "20mm 半自动版 BFG。"
+  },
+  "RBFG ( RAILDRIVEN BALLISTIC FLECHETTE GUN)": {
+   "zh": "RBFG 轨道驱动弹道飞镖枪",
+   "note": "肩扛式，能把坦克打停。"
+  }
+ }
+}
