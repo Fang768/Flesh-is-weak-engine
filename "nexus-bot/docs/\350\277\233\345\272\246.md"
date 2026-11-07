@@ -1,0 +1,466 @@
+# 进度记录 · Cyberpunk 跑团机器人
+
+> 记录时间：2026-11-06 04:10（Asia/Shanghai）
+> 状态：**回合骨架已跑通**，可用示例剧本在群里出回合；规则文档与引擎层已基本成型。
+> 最新进展见文末「当前状态（2026-11-06 20:12）」；战斗扩展第 1–4 步已完成。
+> 2026-11-07 追加：《歌剧院之夜》已从 a1 一路打到结局（a3 三场铺场、胜负钩子、休整/装备、战斗中拦检定、炮塔黑入）。
+> 2026-11-07 追加：EB / 人情账本与「确认层」已接进自然语言回合（阶段 1）。
+> 2026-11-07 追加：跨战斗演员表、Boss 命格退场/回归、过场 presence 已接（阶段 2）。
+> 2026-11-07 追加：黑冰 / 接入点 / 控制节点已接（阶段 3）。
+> 2026-11-07 追加：四张场景地图、距离 DV、视线/掩体、移动与 5×5 爆炸已接（阶段 4）。
+> 2026-11-07 追加：`a3.entry` 已按上一场幸存者动态铺场（幸存者 `ref` + `PC−2` 蠢蛋；都没逃掉则跳过遭遇）。
+> 2026-11-07 追加：非战斗坐标已按角色卡持久化，战斗/非战斗移动统一按 `MOVE×2` 米（阶段 6）。
+> 2026-11-07 追加：手榴弹按规则书、`range_m`/DM 估距/动态任务 DV、整本 `--real` 复跑（阶段 7–9，详见文末）。
+
+---
+
+## 1. 一句话现状
+
+QQ（9.9.37-54395，真实客户端已登录）→ SnowLuma 2.4.0 注入 → OneBot v11 反向 WS →
+NoneBot2 2.5.0（`127.0.0.1:8080`）→ 五个插件：`gate`（开团闸门）/`character`（建卡·认领）/
+`cp_rules`（检定·武器·义体·专长）/`play`（回合）/`nexus_ping`（自检）。
+模型用 DeepSeek `deepseek-chat`（key 在 `nexus-bot/.env`）。
+
+### 运行态（最后一次确认）
+
+| 项 | 值 |
+|---|---|
+| bot 进程 | python，pid **39032**，监听 `127.0.0.1:8080` |
+| 协议端 | SnowLuma，`127.0.0.1:5099`（WebUI）；QQ 端口随机 |
+| 机器人 | QQ `3916495355`，昵称「黎明-33」 |
+| 测试群 | `1121562905`「测试跑团」 |
+| 测试 | **172 passed**（`pytest tests -q`，0.2s） |
+| 数据库 | `nexus-bot/data/nexus.db`；当前 campaigns 0 / characters 1 / events 0 |
+
+---
+
+## 2. 目录地图
+
+```
+nexus-bot/
+├── bot.py                    入口（nonebot.init → 注册 OneBot V11 → load_plugins → run）
+├── .env                      HOST/PORT/DRIVER/COMMAND_START/NICKNAME/DEEPSEEK_API_KEY
+├── bot.log                   运行日志
+├── core/                     业务层（12 个模块）
+├── cyberpunk/                规则引擎（14 个模块，纯标准库 + 随机性注入）
+├── plugins/                  5 个 NoneBot 插件
+├── story/demo.json           示例剧本《霓虹血债》
+├── tests/                    13 个测试文件，172 项
+├── scripts/                  cdp.py（驱动 NapCatQQ Desktop）/ kill_stuck.py / screenshot.ps1
+├── docs/复用分析.md           从 AstrBot 项目提取的可复用清单
+└── data/nexus.db             SQLite（WAL）
+```
+
+代码规模：**5,655 行 Python**（不含 .venv）。
+
+---
+
+## 3. 规则层（文档 + 数据）
+
+### 3.1 两套规则并存，以 V3 为主
+
+| | Cyberpunk **V3.0**（CP4110，2005） | Cyberpunk RED **Easy Mode** v1.1 中文 |
+|---|---|---|
+| 系统 | Fuzion | Interlock |
+| 判定 | `属性+技能+1D10 ≥ DV`，**平局算成功** | `1d10+属性+技能 > DV`，**平局守方胜** |
+| DV | 10 / 14 / 18 / 22 / 26 / 30 | 13 / 15 / 17 / 21 / 24 |
+| 血量 | HITS = BODY×2 + STUN = BODY×5 双池 | 单 HP 池（卡面给定值，**无公式**） |
+| 护甲 | SP 减伤 + EV 扣 REF | SP 减伤，每次挡伤 −1 |
+| 定位 | **主线长团** | 短团 / 备用 |
+
+Easy Mode 的 HP 无公式（肆拾 BODY3→40、火炬 BODY6→35、搬运工 BODY7→45），
+但 `死亡豁免 = BODY`、`重伤阈值 = hp//2` 成立。`combat_ext.derived(stats, hp=卡面值)` 已支持。
+
+### 3.2 V3 文档（`D:\Code\Synthetic_Dawn\rules\cp_v3\docs\`，10 篇）
+
+| 文件 | 内容 |
+|---|---|
+| `00-术语表.md` | 10 属性 + 12 派生 + 九大类 **95 项技能**（中英对照 + 关联属性）+ 常用术语 |
+| `01-核心机制.md` | 基础检定、DV 阶梯、修正值、关联技能、幸运池、大成功大失败 |
+| `02-角色创建.md` | 五种建卡路线、CP 经济、Everyman 技能、**26 个模板属性速查表** |
+| `03-战斗规则.md` | 先攻 `1D10+REF`、3 秒回合、连发三档、命中部位、伤害链、爆炸物、载具部位 |
+| `04-装备与武器.md` | 武器九字段、**81 条武器全表（含中文名）**、18 件护甲、起始装备 |
+| `05-义体与改造.md` | NuCybe 体系（bracer/modd/splice/neural net）+ **122 条义体中英对照** |
+| `06-网行.md` | DataPool、deckchip/smartboard、Construct（Strength/Structure/ICON）、Material 实体化 |
+| `07-世界观与夜之城.md` | 黑暗未来时间线、夜之城分区、企业与帮派、街头用语 |
+| `08-人生路径与成长.md` | Lifepath 表、IP 升级成本、Giri 人情收支、REP |
+| `09-专长与天赋.md` | 10 项专长（成本 = 基础价 × 影响倍率）+ 24 项天赋 |
+
+### 3.3 Easy Mode 文档（`rules\cpr_easy\docs\`，4 篇）
+
+`01-核心机制.md`、`03-战斗规则.md`、`10-装备扩展（V3移植）.md`（81 武器换算成简易版数值 +
+18 护甲 + 六件义体 + 简化 IP）、`11-战斗增补（V3移植）.md`（命中部位、全自动、压制、AP/锐器）。
+
+### 3.4 机器可读数据（`rules\` 下）
+
+| 文件 | 内容 |
+|---|---|
+| `cp_v3/data/glossary.json` | 属性/派生/九类技能/术语（中文主线） |
+| `cp_v3/data/weapons.json` | 81 条武器九字段（英文原名） |
+| `cp_v3/data/weapons_zh.json` | 81 条中文名 + 风味描述 |
+| `cp_v3/data/cyberware_zh.json` | 122 条义体中英对照 |
+| `cp_v3/data/perks_zh.json` | 10 专长 + 24 天赋 |
+| `cp_v3/data/templates.json` | 26 个模板（属性/6 技能/装备） |
+| `cpr_easy/data/easy_templates.json` | 6 张简易版卡（肆拾/搬运工/火炬/赤尾/24-7/清道夫） |
+
+抽取脚本：`cp_v3/pdftext.py`（分栏取文本）、`extract_weapons.py`、`extract_templates.py`、
+`ocr_pdf.py`（Easy Mode 全书 OCR，48 页）。
+
+---
+
+## 4. 引擎层 `cyberpunk/`（纯函数，不依赖 NoneBot）
+
+| 模块 | 职责 | 关键点 |
+|---|---|---|
+| `dice.py` | `RandomRoller` / `ScriptedRoller` | 随机性可注入，测试可复现 |
+| `stats.py` | 十属性校验 + 派生公式 | `derived()`，LUCK=(INT+REF)//2、HITS=BODY×2 |
+| `checks.py` | `resolve_check()` / `opposed_check()` | DV 枚举、12 项修正、自然 10 追加、自然 1 减骰 |
+| `damage.py` | 伤害链 | 命中部位倍率、`effective_sp(ap/melee)=sp//2`、挡伤 SP−1、死亡豁免 |
+| `characters.py` | `Character` 聚合 | `check()`、`effective_stat()`（街头门路加镇定）、`effective_skill()`（专长/天赋加成） |
+| `combat_ext.py` | 简易版战斗补丁 | 命中部位、`autofire_hits()`、`suppression_save()`、卡面 HP |
+| `convert.py` | V3 → Easy 数值互换 | `damage_to_easy()`、`availability_dv()`、`sp_to_easy()`、`ip_cost()` |
+| `gear.py` | 武器/护甲查询 | 中英双向、按类型检索、`format_card()` |
+| `cyber.py` | 义体查询 | 122 条、按分类 |
+| `perks.py` | 专长/天赋 | `perk_cost()`、`TALENT_SKILL_BONUS` |
+| `easy.py` | 简易版卡 | 6 模板、42 项技能属性表、`resolve_skill()` |
+| `names.py` | 术语层 | 中英互转、`resolve_skill()`、`TEMPLATE_SKILL_MAP` 归一 39 个脏名 |
+| `commands.py` | 命令层纯逻辑 | `/r` 骰式解析、技能→属性表 |
+
+---
+
+## 5. 业务层 `core/` + 插件
+
+### 5.1 core
+
+| 模块 | 职责 |
+|---|---|
+| `runtime.py` | **全局单例**：`GATE` / `ATTENTION` / `CONN`（插件必须从这里取，否则状态分裂） |
+| `db.py` | 建表 + `_ensure_columns()` 老库补列 |
+| `session.py` | `Gate`：开团/暂停/继续/结束/换场景，`Campaign` 带 `scenario` |
+| `intents.py` | 规则式意图识别（RESUME > END > PAUSE > STATUS > HELP > START）+ 确认解析 |
+| `attention.py` | 注意力窗口（**参与者集合**，10 分钟 TTL，发起人独占确认权） |
+| `roster.py` | V3 角色卡：建卡/改卡/校验/存档/渲染 |
+| `easy_roster.py` | 简易版卡：认领/存档/渲染 |
+| `llm.py` | `complete_json()`，DeepSeek `json_object` 模式，`LAST_USAGE` 记账 |
+| `story.py` | 剧本载入、场景、闸门、结局 |
+| `turn.py` | **三段式回合**：提议 → 判定 → 旁白 |
+| `events.py` | 事件流（开团/暂停/骰子/场景/奖励） |
+| `growth.py` | IP 成长、人情消耗 |
+
+### 5.2 插件与命令
+
+| 插件 | 优先级 | 命令 |
+|---|---|---|
+| `gate` | 1（block=False） | 群里 @ 后自然语言：状态/开团/确认/暂停/继续/结束 |
+| `character` | 3（仅 IDLE） | `/模板`、`/认领 <名>`、`建卡 …`（自然语言）、`/档案`、`/记录`、`/奖励`、`/提升 <技能>` |
+| `play` | 3（仅 ACTIVE，且非命令） | 开团后直接说话即出回合，不用 @ |
+| `cp_rules` | 5 | `/r`、`/dv`、`/check <技能> dv=14 mod=-3`、`/枪`、`/义体`、`/专长` |
+| `nexus_ping` | 1 | `/ping` |
+
+### 5.3 数据模型（`data/nexus.db`）
+
+- `campaigns(id, title, status, scene, scenario, created_at, updated_at)`
+- `group_sessions(group_id PK, campaign_id, mode, updated_at)` —— 一群一主线
+- `characters(id, group_id, owner_qq, name, template, concept, stats, skills, perks, state, gear, …)`
+- `easy_cards(group_id+owner_qq PK, data, …)`
+- `events(id, campaign_id, group_id, kind, actor, summary, data, created_at)`
+- `operators(qq PK, note, added_at)`
+
+---
+
+## 6. 设计决策（为什么这么做）
+
+1. **主线用 V3，Easy Mode 只作备用**：campaign 需要成长、义体、经济、装备骨架；Easy Mode 三局后角色无变化。
+2. **先做「薄闸门」再做内容**：闸门是路由层、引擎是纯函数库，互不阻塞；反过来做会让每个 handler 回头补权限，漏一个就是「没人开团时乱说话烧 token」。
+3. **模型只提议、程序定数值**：模型输出 `{action, skill, approach, target}`，骰点/DV/伤害全在引擎；旁白禁止改数字改成败。
+4. **注意力窗口用参与者集合**：第二个人 @ 机器人是追加不是顶替，避免多人跑团互相踢出窗口。
+5. **一群一主线**：`group_sessions` 单行记录，私聊与群消息都路由到当前活动主线。
+
+---
+
+## 7. 未完成 / 待办（按优先级）
+
+1. **与主人实测**两三个回合，校准旁白长度、检定频率、失败惩罚（当前最需要）。
+2. **替换剧本**：`story/demo.json` 换成真正的主线大纲（开场钩子/三幕目标/NPC/线索门槛/结局分支）；`core/story.py` 需支持多幕串联。
+3. **方案 A 收尾**：`rules/cpr_easy/docs/11-战斗增补（V3移植）.md` 已写，但战斗内还没接 `combat_ext`（命中部位/全自动/压制在 `combat_ext.py` 里，插件尚未调用）。
+4. **方案 B 剩余**：专长/天赋在建卡时可选（数据与 `perks.py` 已有，`plugins/character` 只在模型 plan 里取 `perks`，缺玩家自助命令）。
+5. **双规则共存**：`campaigns` 有 `scenario` 但还没有 `rules_version` 字段，`/check` 靠「有没有简易版卡」隐式分流。
+6. **网行 / 载具**：文档有（`06-网行.md`、`03-战斗规则.md` 载具部位），代码未实现。
+7. **多幕与存档恢复**：`events` 有记录，暂停恢复只回一句「上次停在 X」，还不能回放完整上下文。
+
+---
+
+## 8. 启动 / 测试 / 排障
+
+```bash
+# 起协议端（会弹 UAC 无关；Desktop 自带 QQ 登录态）
+start "" "C:\Program Files\NapCatQQ Desktop\NapCatQQ-Desktop.exe"
+
+# 起 bot
+cd /d/Code/Synthetic_Dawn/nexus-bot
+.venv/Scripts/python.exe bot.py
+
+# 测试
+.venv/Scripts/python.exe -m pytest tests -q
+```
+
+**排障三件事（都真踩过）**
+
+1. **端口占用**：重启前先 `Get-NetTCPConnection -LocalPort 8080 -State Listen | % OwningProcess`
+   → `Stop-Process -Id <pid> -Force`，否则 `[Errno 10048]`。
+2. **DeepSeek 400**：`response_format=json_object` 要求提示里出现 `json` 字样，
+   漏了会报 `Prompt must contain the word 'json'`。`NARRATE_SYSTEM` 已加 `{"narration": …}`。
+3. **生成 Python 代码不要用 `\n`**：在 Git Bash heredoc 里写 `"\\n"` 会落盘成真实换行，
+   连续两次编译报错（`unterminated f-string`）。一律用 `chr(10)`。
+
+**其他已知坑**
+
+- SnowLuma 的 `launcher.bat` 被改过（调用自带 `node.exe`，因为系统 node v26.3.0 不满足 `>=26.12.1`），备份在 `launcher.bat.bak`；**重装 SnowLuma 会覆盖**。
+- SnowLuma 的 `config/onebot_*.json` 里 http/ws 服务器已关（只留反向 WS），改完必须重启协议端，启动时「配置冲突」弹窗要选「全部选运行时」。
+- NapCat（Shell 版）在本机 QQ 9.9.37-54395 上会挂在 `Process resumed`（版本表最高只到 9.9.37-54276），已弃用，改用 SnowLuma。
+
+---
+
+## 9. 与 AstrBot 原项目的关系
+
+原包（`plugins/astrbot_plugin_nexus_gm` 等）**不是官方规则**，其 `public_guide.py:21` 自述是
+「借用《赛博朋克2077》世界观的 V3.2 自制群聊规则」。可复用的只有**工程骨架**：
+确定性检定流程、两阶段（先公布 DV 再掷骰）、消息去重、epoch 失效、暂停恢复签名、
+SQLite 事务 + 提案/确认/批准、事件溯源 + 提案批量审核、LLM 只提议的 JSON 契约。
+详见 `nexus-bot/docs/复用分析.md`。
+
+## 战斗扩展 第 1 步（已完成）
+
+- `rules/red/data/enemies.json`：歌剧院 6 张 NPC 表 + 自动炮塔，共 7 条
+- `core/combat.py`：`enemy_preset()` 先查 JSON 再回退内置三档；`enemy_names()`；`_encounter_groups()` 读场景 `encounter` 自动铺场
+- `story/opera.json` 的 `a1.opera` 带 `encounter`（小丑×1 + 僧侣×1 + 吸血鬼×=pc）与 `modifiers`（前 3 轮 −4，水平阻尼降噪免疫）
+- 测试 `tests/test_enemies.py` 4 项；全量 **267 passed**
+
+下一步：阵营 `ally`（吸血鬼先打小丑/僧侣，被玩家打才还手）→ 战斗修正 −4 接线 → 逃跑/自爆脚本。
+
+## 战斗扩展 第 2 步：多阵营（已完成）
+
+- `Combatant.side` 直接当阵营 id 用（持久化列不变），`Combat.factions: dict[str, set[str]]` 声明「谁打谁」，`Combat.labels` 存显示名
+- 关系表随战斗存进 `combats.factions / combats.labels`（JSON 列，`_ensure_columns` 自动迁移），重连/重开都还在
+- 未声明的阵营默认敌视所有非本阵营；`provoke()` 让「一方动手即双向敌对」
+- `foes(combat, actor)` 统一算可打目标：敌人回合、玩家选目标都走它
+- 遭遇 JSON 支持 `faction / label / hostile_to`，剧本 `a1.opera` 已配成 小丑+僧侣 vs 吸血鬼、玩家中立
+- 开局队列头部是敌人时 `_settle_head()` 先自动结算，避免第一位是敌人导致谁都不能动
+- 测试 `tests/test_enemies.py` 增至 7 项；全量 **270 passed**
+
+## 战斗扩展 第 3 步：环境修正 modifiers（已完成）
+
+- `combat.modifiers` 存进 `combats.modifiers`（JSON 列，自动迁移）；条目字段 id/label/value/rounds/applies_to/negate_if/note
+- `rounds` 支持 1 / [1,3] / "1-3" / "1,2,3"；`applies_to` 支持 all、阵营 id、列表；`negate_if` 按角色的 gear/cyber/perks/武器/护甲标签做包含匹配
+- `modifier_for / modifiers_for / modifier_text / modifier_summary`，攻击、敌人回合、turn_flow 检定全部接线，回复注明「（尖叫 −4）」
+- `status_text` 顶部显示「环境修正：尖叫 −4」；未免疫者才受影响（水平阻尼降噪免疫已验证）
+- 剧本 encounter 的 `modifiers` 由 `_encounter_groups()` 一并带进战斗并落库
+
+## 战斗扩展 第 4 步：敌人行为脚本（已完成）
+
+- 脚本随敌人存进 `combatants.script`（JSON 列）；剧本顶层 `scripts` 与 encounter `scripts` 合并成库，组里用名字或内联 dict 引用
+- `join_round`：未到轮次「还在场外」不行动
+- `flee_if`：`round_gt / round_gte / any_serious / any_critical`，`allies` 指定同伴；重伤按 `wound`（缺省 `max_hp//2`），致命按 dead 或 HP≤0
+- 逃跑成功输出「脱离战斗」并置 `escaped`，`_check_over` 区分「敌人跑光了」与「全倒下了」；`flee_blocked`（GM 判断能否逃脱）为真则转 `on_flee_fail`
+- `on_flee_fail.self_destruct`：引信武器、伤害骰、note；**没有地图，按同场全体结算**爆炸伤害（护甲=SP 减伤，自身死亡），回复里明确注明此简化
+- `targets`：前 N 轮按 `split` 阵营平摊（同脚本敌人按先攻序号取模），之后回到默认最近/随机
+- `story/opera.json` 配好小丑/僧侣脚本（前两轮平摊玩家与吸血鬼；>3 轮或同伴重伤/致命就逃跑，跑不掉引爆伪装成念珠/水气球的穿甲手榴弹 6D6）
+- 测试 `tests/test_combat_scripts.py` 11 项；全量 **281 passed**；`scripts/simulate.py` 新增 `scripts` 场景，**16/16** 通过
+
+还剩：爆炸物格子/范围判定（设计文档 §7 明确延期）、`any_critical` 的端到端用例、真实 QQ 通道 `--real` 复跑。
+
+---
+
+## 当前状态（2026-11-06 20:12，停在这里）
+
+- 战斗扩展按设计文档走到第 4 步：第 1 步敌人表 / 第 2 步多阵营 / 第 3 步 modifiers / 第 4 步敌人脚本，全部落盘。
+- 自测：`pytest tests -q` → **281 passed**；`scripts/simulate.py` → **16/16**（新增 `scripts` 场景，含修正、平摊、逃跑、自爆、join_round）。
+- 停点：`targets` 平摊、`flee_if`、`on_flee_fail` 自爆已可用；`flee_blocked` 留给 GM 判断；爆炸没有地图，按同场全体结算。
+- 下次继续的候选（按设计文档）：
+  1. 地图↔战斗 P2（`docs/待办缺口.md` 已列 6 小步，恢复条件：用户确认）——爆炸物格子/范围判定挂在它后面；
+  2. `any_critical` 的端到端场景（同伴被打死直接触发逃跑）；
+  3. `--real` 走一遍真实模型/QQ 通道。
+- 未改动：暂停中的 P2 地图清单原样保留，未动 `D:\Code\DSH\FHT.dsh\`。
+
+---
+
+## 跑通《歌剧院之夜》（2026-11-07）
+
+- `story/opera.json` 的 a3 三场铺场：a3.entry 博佐帮蠢蛋×2、a3.church 自动炮塔×2、a3.boss 鲁思文勋爵×1（固定数量，先不等上一次的幸存者）
+- encounter 新增 `on_win` / `on_lose`：门口→教堂→Boss→尾声链式推进；任一场队伍全灭走 `ending:opera_dead`；a1.opera 也补了 `on_lose`
+- `turn_flow._aftermath()`：战斗结束（active=false 且一方清空）后清场，按 `on_win/on_lose` 换场或结团；带 `ending` 的场景现在会 `GATE.end()`，不再只打印文本
+- 战斗中普通检定被拦：「⚔ 战斗还没结束：先攻击、移动、装填、跑，或者「收队」。」攻击/移动/装填/跑仍可用，胜利改由 `on_win` 推进而不是场景 gate 检定
+- 新增「休整 / 治疗 / 包扎 / 休息」：非战斗时所有活着的 PC（RED 卡与简易卡）HP 回满，倒下的不复活；战斗中拒绝
+- 新增「装备 / 带上 / 拾取 <物品>」：写进角色 gear（上限 12），下一场战斗的 `_card_tags` 生效；「水平阻尼降噪」可用这个入口加
+- `_negated` 加别名表：「水平阻尼降噪」同时匹配 水平阻尼 / 阻尼降噪 / 声音抑制器（RED 数据里实际只有 Sound Damper）
+- 简易卡 `rest()` 补 `max_hp`（取模板 hp，旧卡没有该字段也能回满）；`_sync_pc_hp` 不再把满血上限写没
+- 测试 `tests/test_opera_run.py` 7 项；全量 **288 passed**；`scripts/simulate.py` 新增 `opera` 场景，**17/17** 通过
+- 仍未做：幸存者二次遭遇（`escaped` 不跨战斗保存）、炮塔接管/黑冰、EB/人情记账、4 张地图、整本 e2e `--real`
+
+---
+
+## 炮塔黑入与命令余波（2026-11-07）
+
+- encounter 新增 `hack` 段（skill/dv/target/count/keywords）：`combat.hack()` 花一个动作，掷 TECH+技能+1D10 vs DV；成功一次停 `count` 座名字含 target 的敌人（hp=0、dead，回复「熄火停机」），失败白花动作；不做地图/黑冰/接入点
+- `story/opera.json` 的 a3.church 配好 hack：电子/安全技术 DV13，target 自动炮塔，count 1，关键词 黑入/接管/切断电缆/黑炮塔
+- `turn_flow.handle()` 在关键词命中时走 `combat.hack()`，结束后照常 `_aftermath()`；不命中关键词返回 None，不打扰其它动作
+- `/攻击` 命令打死敌人后也调用 `turn_flow.aftermath()`，用命令打完 Boss 同样进结局，与自然语言攻击一致
+- 修 `_advance()` 的轮次错位：队列里有人倒下导致取模跳过时，若下一个 PC 的动作已用掉，就另起一轮并重置动作槽（连续两次黑入不再误报「动作已经用过了」）
+- 测试 `tests/test_opera_run.py` 增至 9 项（黑入停炮塔并进 Boss、非黑入文本不影响）；全量 **290 passed**；`scripts/simulate.py` 教堂段改为真实黑入流程，**17/17** 通过
+- 仍未做：黑冰/接入点/控制节点、幸存者二次遭遇（`escaped` 不跨战斗保存）、EB/人情记账、4 张地图、整本 e2e `--real`
+
+---
+
+## EB / 人情账本与确认层（2026-11-07）
+
+- `growth.blank_state` 增加 `eb` / `favors` / `settled`；新增 `grant_eb`、`grant_favor`、`favors_for`、`use_favor`、`settle`（同一 `campaign:scene` 只结一次），`render_state` 带 EB
+- 人情分个人 / 组织：个人只对 `holder` 本人，组织按 NPC 的 `affiliations` 匹配；`story/opera.json` 给博佐帮（小丑、僧侣）与爱乐吸血鬼（雷菲尔德、主人）补了 `affiliations`
+- 结算：a1.students 定金 500 EB，a3.ending 尾款 1500 EB + 4 IP + 爱乐吸血鬼组织青睐；在 `_aftermath()` 和普通换场时各触发一次
+- `turn_flow` 新增统一确认层：`_PENDING` 按群存一条；可行直接做，范围对不上/已用/没有这笔先说明原因 + 给替代，回「确认」才按失败结算，回「算了」取消；发别的命令自动作废
+- 人情入口：自然语言提到「人情」走账本（战斗内拒绝）；显式 `/人情` 查 EB 与账本、`/用人情 <对象>` 直接消耗，不走确认
+- 简易卡 / RED 卡都有 `set_state`，状态写回各自存储；`/攻击` 余波、`_aftermath()` 修复保持原样
+- 测试 `tests/test_favors.py` 9 项；全量 **299 passed**；`scripts/simulate.py` 新增 `favors` 场景，**18/18** 通过
+- 仍未做：幸存者跨战斗、黑冰/接入点、4 张地图、整本 `--real`；确认层目前只服务人情，地图/黑冰/临场动作接入时复用 `_PENDING`
+
+---
+
+## 跨战斗演员表与 Boss 命格（2026-11-07，阶段 2）
+
+- 新表 `campaign_actors`：`combat.end()` 删 combatants 前，把带 `actor` 的非玩家参战者归档（status=dead/escaped/active，保留 hp/max_hp/fate/withdraw_at/script/data）；旧剧本不写 `actor` 就不归档，行为不变
+- encounter group 支持 `{"ref": "...", "fresh": true, "if": "escaped"}`：演员按 campaign 取回，`fresh` 满血回归，`if` 可过滤存活/阵亡者
+- Boss 命格：`fate:"cannot_die"` 时 HP 归零不置 dead，改为 escaped/1 HP 退场；`withdraw_at` 到阈值主动脱离。`_aftermath()` 新增 `on_withdraw`，全 dead 才算 `on_win`，避免把 Boss 打跑当通关
+- 过场 `presence`：场景可写 `{name, line, untouchable}`（或纯字符串）；攻击 untouchable 角色走统一确认层，说明原因 + 给替代，回「确认」后按落空结算
+- 顺手修攻击伤害行「护甲挡」显示（`damage - min(damage, sp)` → `min(damage, sp)`）
+- 测试 `tests/test_actors.py` 4 项；全量 **303 passed**；`scripts/simulate.py` 新增 `actors` 场景，**19/19** 通过
+- 仍未做：`a3.entry` 尚未把「上一场跑掉的小丑/僧侣」接进固定铺场、黑冰/接入点/控制节点、4 张地图、整本 `--real`
+
+---
+
+## 黑冰 / 接入点 / 控制节点（2026-11-07，阶段 3）
+
+- `encounter.net`：`access`（name/dv/skill/keywords）+ `nodes`（id/name/dv/skill/keywords/effect/ice）；`combats.net` 按 owner_qq 存 `connected` / `controlled` / `flags`，跨回合与 `load` 都保留
+- `combat.net_action()`：先「接入」再「黑入 <节点>」，两段都是 d10 + TECH + 技能 + 重伤 + 环境修正 vs DV；未接入时点节点名会提示先找接入点；已控节点不重复掷
+- 效果支持 `stop_turrets`（按 target 名字停 count 个，hp=0/dead）、`open_door`、`flag`（写 `combats.net["flags"]`）；控制失败时节点若带 `ice`，做一次中间态黑冰反扑：`ATK + 1d10 vs 你的交互界面 + 1d10`（交互界面用电子/安全技术等级代理），命中才烧 `ice.damage`（护甲不减），落空只是白费动作
+- 这是中间态：完整黑冰的 PER/SPD/REZ、先攻、扫除/遁走留到网行扩展；旧数据没写 `ice.atk` 时仍按直接反噬处理
+- 旧 `encounter.hack` 保留为单节点简化版；`turn_flow` 先走 `net_action`，返回 None 再回退 `hack`，老剧本行为不变
+- `a3.church` 已配两步：接线盒 DV8 → 炮塔控制节点 DV8 停 2 座；控制失败触发黑冰反扑（ATK6），命中烧 2D6
+- 测试 `tests/test_net.py` 6 项，`test_opera_run.py` 的教堂测试改为接入→控制；全量 **309 passed**；`scripts/simulate.py` 新增 `net` 场景（未接入/接入/控制/黑冰反扑命中与落空），**20/20** 通过
+- 完整网行（交互界面等级/2–5 个网行动作、接入点 6 米、黑冰 PER/SPD/ATK/DEF/REZ 与先攻/扫除/遁走）整体挂起，归入网行扩展，等剧本需要再做；当前保留 `encounter.net` 与中间态反扑
+- 仍未做：4 张地图与爆炸范围、整本 `--real`、`a3.entry` 幸存者铺场
+
+---
+
+## 四张地图与距离/掩体（2026-11-07，阶段 4）
+
+- `maps/` 新增四张场景图：`opera_hall.json`（18×12）、`church_gate.json`（16×10）、`church_nave.json`（18×12）、`boss_crypt.json`（16×12）；地形只用 `# . ~ % +`，掩体是 objects（id/name/hp/blocks_los）
+- `combats` 加 `map` / `covers`，`combatants` 加 `x` / `y`；`start()` 按场景 `map` 载图，PC 用 `spawns["pc"]`，敌人按 `spawn or spawns[side] or spawns["enemy"]`，BFS 占最近空格；encounter group 可写 `spawn:[x,y]` 覆盖
+- 攻击接距离：`_WEAPON_TABLE` 按技能/伤害串/tags 找武器，米数映射 DV；无地图保留 DV15。近战超过 2 米返回「够不着」；远程查视线，被墙/掩体挡住返回「视线被X挡住」；超程返回「超出…射程」
+- 打掩体：`target_hint` 命中掩体名且不命中敌人名时，掷 `d10+REF` vs 武器 DV/15，命中扣 `combats.covers` 耐久（默认用图里的 hp）
+- 移动：战斗动作支持「移动到 5,6」与「躲到<掩体名>后面」，6 格预算、`gridmap.move` 后写 x/y；敌人也会在视线被挡/超程时向目标靠近（炮塔不动）
+- 爆炸：`on_flee_fail.self_destruct` 有地图时只结算爆心 2 格（5×5），无地图仍按同场全体
+- `/地图`（aliases `map`）：渲染 `@` 玩家、`A` 友军、`E` 敌人与掩体耐久
+- 测试 `tests/test_map_combat.py` 8 项；全量 **317 passed**；`scripts/simulate.py` 新增 `map` 场景，**21/21** 通过
+- 明确未做：非战斗移动的地图位置不持久化（无 campaign 级坐标）、`range_m` / DM 估米数与动态任务 DV 9–29 未接、通用手榴弹/爆炸物范围未做、掩体打烂后的通行/视线细化、`a3.entry` 幸存者铺场仍固定、整本 `--real` 未跑
+
+---
+
+## a3.entry 幸存者动态铺场（2026-11-07，阶段 5）
+
+- 依据 `rules/red/data/playbook_opera.txt:94`：只有上一场幸存的小丑/僧侣守门；旁边蠢蛋数量 = `PC 数 − 2`；只有僧侣→全是审判官和尚，只有小丑→全是博佐帮，都幸存→50/50，都没幸存→跳过遭遇、教堂不设防。`playbook_opera.txt:57` 的「尽量让一个跑掉」只是 GM 建议，不做强制逃跑。
+- `core/combat.py` 的 `_encounter_groups`：group 的 `if` 支持 `{"escaped": [...], "not_escaped": [...]}`（对照 `campaign_actors`）；`count` 支持表达式 `=pc`、`=pc-2`、`=(pc-2)//2`、`=pc-2-(pc-2)//2` 等（正则白名单 + eval）；普通组可透传 `actor` 并归档；空 encounter 返回 `((), ())`，不再回退成默认「打手」。
+- `start_text` 对空遭遇返回「🚪 这次遭遇没有人登场，直接跳过（note）」且不 `start`。
+- `story/opera.json`：a1.opera 的小丑/僧侣组补 `actor`（`opera_clown`/`opera_monk`）；a3.entry 改为两个 `ref` 条件组 + 三种数量拆分的条件 mook 组（both / only monk / only clown）。
+- `AGENTS.md` 新增规则 4：实现剧本/规则前先关键词索引 `story/*.json`、`rules/red/data/playbook_*.txt`、`rules/red_core/raw/full.txt`，引用 `文件:行号`；规则书没写的标为「约定」。
+- 测试 `tests/test_entry_survivors.py` 5 项（双幸存/单幸存/零幸存、count 表达式、a1 actor 透传）；`test_opera_run.py` 的 a3.entry 断言改为动态条件。全量 **322 passed**；`scripts/simulate.py` 新增 `entry` 场景，**22/22** 通过。
+- 未做：`force_escape` 开关（默认不做强制逃跑）、非战斗坐标、手榴弹按规则书、`range_m`/动态 DV、整本 `--real`。
+
+---
+
+## 非战斗坐标与 MOVE×2 移动（2026-11-07，阶段 6）
+
+- 依据 `rules/red_core/raw/full.txt:14469`：战斗内每回合一次移动动作，最多 `移速×2` 米（网格图上就是 `MOVE` 格）；非战斗没有回合/动作/移动力，位置由场景图负责回答。战斗里原先写死的 6 格改为按角色卡 `MOVE`（缺省 6）。
+- `core/combat.py` 新增 `_move_cells(card)`、`_scene_cards`、`_saved_pos`、`_noncombat_positions`、`_save_pos`、`scene_move()`；非战斗坐标写进角色卡 `state.pos = {"map", "x", "y", "goal"?}`，经 `roster.set_state` / `easy_roster.set_state` 落库，跨回合、暂停与恢复都保留。
+- 非战斗移动说「移动到 5,6」或「躲到<掩体名>后面」：按 `MOVE` 格预算走 `gridmap.move`，超出就停在能到的最远处，回「继续走」接着走；`turn_flow.handle` 在 NPC 对话与模型之前拦截，不把坐标交给模型编。
+- `map_text` 非战斗时用卡里的坐标渲染 `@`（自己）与 `A`（队友），没有存过坐标的人从 `spawns["pc"]` 起按 BFS 排最近空格；战斗地图仍用 `combatants.x/y`。
+- 测试 `tests/test_scene_move.py` 6 项（默认 MOVE、坐标持久化、超预算半路+继续走、非战斗地图标记、无地图不接管、turn_flow 直接路由）；全量 **328 passed**；`scripts/simulate.py` 新增 `scenemove` 场景，**23/23** 通过。
+- 仍未做：`range_m`/DM 估米数与动态任务 DV 9–29、通用手榴弹/爆炸物范围、掩体打烂后的通行/视线细化、整本 `--real`。
+
+---
+
+## 手榴弹按规则书（2026-11-07，阶段 7）
+
+- 依据 `rules/red_core/raw/full.txt:15074-15082`（投掷物体＝其他动作做远程攻击，`DEX+运动+1D10`，射程 25 米，距离 DV 等同榴弹发射器）、`:14873-14892`（高爆对 10×10 米即 5×5 格结算、伤害骰只掷一次、掩体足够抵挡则免伤、被打烂则吃满、REF≥8 可闪避）、`:14760-14766`（榴弹发射器距离 DV 16/15/15/17/20/22/25）、`:14667-14670`（手榴弹 6D6）。
+- `core/combat.py` 新增 `GRENADE_WORDS` / `GRENADE_RANGE_M=25` / `GRENADE_DAMAGE="6D6"` / `BLAST_CELLS=2`、`looks_like_grenade()`、`grenades()`、`_spend_gear()`、`throw_grenade()`：动作槽校验 → 装备里必须有「手榴弹/手雷」→ 25 米超距与墙阻挡直接拒绝（不消耗动作/弹药）→ 距离 DV → 未命中时 8 方向偏移 1–2 格 → 6D6 只掷一次 → 爆心 Chebyshev≤2 内全体结算（含玩家）→ REF≥8 掷闪避，闪避骰 > 命中骰才算逃出 → 每人查 `cover_on_line`：掩体耐久≥伤害则掩体扣耐久、人免伤，否则掩体归 0 且人吃满（仍减 SP）→ 爆心内其他掩体也扣耐久 → 消耗一颗手榴弹。
+- `core/turn_flow.py` 在 `combat.act` 之前拦「手榴弹/手雷」，记录 `投掷手榴弹：…` 事件并接 `_aftermath`；`core/roster.py` / `core/easy_roster.py` 新增 `remove_gear()`，按名称精确删一颗。
+- 顺带修 `combat.load()` 既有缺陷：敌人 `data` 覆盖的 REF/DEX/闪避/技能/伤势/标签落库后只按 preset 还原而丢失。`combatants` 表新增 `stat` 列（`core/db.py` 建表 + 旧库 ALTER 迁移），`_save`/`_insert` 写 `_stat_json()`，`load()` 优先读回，PC 仍以角色卡为准。这是 REF≥8 敌人闪避手榴弹能生效的前提。
+- 测试 `tests/test_grenade.py` 5 项（没弹药不耗动作、5×5+掩体免伤、偏移落点、REF8 闪避、30 米超距拒绝）；全量 **333 passed**；`scripts/simulate.py` 新增 `grenade` 场景，**24/24** 通过。
+- 仍未做：`range_m`/DM 估米数与动态任务 DV 9–29、掩体打烂后的通行/视线细化、爆炸对地形的破坏入口（墙/地板）、整本 `--real`。
+
+---
+
+## 距离 DV / DM 估距 / 动态任务 DV（2026-11-07，阶段 8）
+
+- 依据 `docs/剩余开发方案.md:122-130`：距离统一用米（1 格 = 2 米），场景/encounter 可写 `range_m`；无地图时按 ① `range_m` → ② DM 估 `{meters, reason}`（校验 1–800 米并记录）→ ③ 15 米兜底并注明；非战斗任务 gate 基准 DV + DM ±2（最终 9–29，必须带理由），武器距离 DV 硬算。
+- `core/map.py` 新增 `dv_for_meters(weapon, meters, *, autofire=False)`；`core/combat.py` 的 `Combatant` 加 `range_m`（写进 `stat` JSON，`load()` 读回），`start()` 从敌人组 `range_m` 或场景 `range_m` 带入；`attack()` 无地图时按 `range_m` 查武器距离表，超程/无数据分别注明「超出 … 射程按 DV15」「按 15 米估算（没有地图/距离数据）」。
+- `core/turn_flow.py` 新增 `RANGE_SYSTEM` 与 `_dm_estimate_range()`：攻击前（无地图且 `range_m=0`）向模型要 `{meters, reason}`，夹到 1–800 米、写回战斗并落库、记 `DM 估距：N 米（理由）` 事件；模型报错/字段不合法就静默走 ③ 回退。
+- 动态任务 DV：`core/turn.py` 的 `Proposal` 加 `dv_adjust`/`dv_reason`（无理由的调整直接丢弃，±2 封顶）；`decide()` 夹到 9–29 并写 `Outcome.dm_note`（边界被夹住也会说明），事件 `data.dv_note` 记录；`turn_flow` 在程序行后输出「（DM 判定：…）」。
+- 测试 `tests/test_range_dv.py` 7 项（encounter.range_m→DV25、场景 range_m 默认、15 米兜底、DM 估距落库与事件、超界夹到 800 米/模型报错回退、无理由调整丢弃、任务 DV 上下界夹取）；全量 **341 passed**；`scripts/simulate.py` 新增 `range` 场景，**25/25** 通过。
+- 仍未做：敌人回合在无地图时仍按 DV15（只接了 PC 攻击）、爆炸破坏地形（墙/地板）、遮断/烟雾的 DV 修正、整本 `--real`。
+
+---
+
+## 整本 `--real` 复跑（2026-11-07，阶段 9）
+
+- 跑法：`./.venv/Scripts/python.exe scripts/simulate.py -s opera --real` 先过歌剧院整线（该场景全部走确定性检定与战斗结算，真模型调用 0 次，1/1 通过）；再跑全量 `./.venv/Scripts/python.exe scripts/simulate.py --real`。
+- 结果：**25/25 场景通过**；真模型（`deepseek-chat`）调用 **33 次**，`llm.LAST_USAGE` 累计 **prompt 10564 / completion 1656 token**，整轮耗时 **68 秒**（本机，含网络）。按 2026-11 的 deepseek-chat 报价粗估约 ¥0.03–0.05（估算，不作预算依据）。
+- 降级：真模型 33 次调用没有出现 JSON 解析失败、超时或空旁白；`llmfail` 场景用模拟超时验证 strict 回退（模型挂了仍掷骰、只回程序行）。旁白异常只丢旁白，不改数值。
+- 为能报 token，`scripts/simulate.py` 的 `FakeLLM` 增加 `prompt_tokens`/`completion_tokens` 累计（`llm.LAST_USAGE` 每次调用会被覆盖，只能在这里累加），`main()` 末尾在 `--real` 下打印调用次数与 token。
+- 边界：这是模拟器直连模型，不是真实 QQ 通道；2–3 人真实 QQ 自由试玩验收仍未做（见根目录 README「当前仅含…未完成 2—3 人连续真实 QQ 自由试玩验收」）。
+- 全量自测：`pytest tests -q` **341 passed**；`scripts/simulate.py` **25/25**（假模型）。
+
+---
+
+## 取消 DV15 兜底：距离一律来自场景（2026-11-07，阶段 8 修订）
+
+- 口径修订（依据 `docs/剩余开发方案.md:126` 改写 + 用户 m01037）：世界里不存在「无地图」的行动，只有「无地图数据」。所以没有地图数据时**不再默认 15 米**，距离必须来自 ① 地图格子 ② 场景/encounter `range_m` ③ DM 估的米数 ④ 玩家/ DM 明说的米数；四者都没有就**不猜 DV**，直接问人。
+- `core/combat.py`：删除 `RANGED_DV = 15`，改 `DEFAULT_WEAPON = "手枪"`（敌人 preset 只记伤害骰，认不出武器时按手枪表）与 `RANGE_ASK`（「距离不明…说一句『距离 20 米』…这句话不算动作」）。新增 `_range_dv(combat, me, target, *, melee, weapon) -> (dv, 距离说明, 打不了的原因)` 统一 PC 攻击的五处距离判定；命中行输出「{总点} vs DV {dv}，{N} 米」。`RANGE_ASK` 分支**不消耗动作、不推进回合**。
+- 新增 `close_range(conn, group_id, actor_qq, text) -> str | None`：识别「距离 20 米/大概三十米/约 30m」写进全体 `range_m` 并回一句「📏 距离记成 20 米，按手枪的距离表 DV 20」。`turn_flow` 在战斗分支里（非攻击、非手榴弹）先试它，命中就记录「报距离：…」事件并不算动作。
+- `_enemy_turn` 补上无地图分支：有 `range_m` 就按敌人自己的武器表算 DV；没有就输出「· 小丑 朝 阿飞 压了过来（距离还没定：DM 说一句米数，或者玩家说『距离 20 米』）」并**不再按 DV15 白打人**；超出射程输出「手里的手枪够不到（N 米），先往前压」。
+- `throw_grenade` 无图分支同口径：>25 米拒绝、无距离返回 `RANGE_ASK`、有距离按榴弹发射器表算 DV 并注明「没有地图数据，爆炸按同场全体处理」。
+- `turn_flow._dm_estimate_range()` 改为**一次给所有还没定距离的人填同一段距离**（原来只填目标），prompt 带「在场：…」；估不出来就不猜 DV，交给 `RANGE_ASK`。
+- `_encounter_groups()` 透传 `range_m`（普通组与 `ref` 组都补，缺省用 `encounter.range_m`）；`start()` 的场景默认也认 `encounter.range_m`。`story/opera.json` 四个遭遇补上米数：a1.opera 10 米（观众席近身）、a3.entry 20 米（教堂门口）、a3.church 30 米（中殿到炮塔）、a3.boss 8 米（祭坛前）。
+- 测试：`tests/test_range_dv.py` 由 7 项扩到 11 项——「没有距离就返回 `RANGE_ASK` 且不消耗动作」「`close_range` 给全员定距离并按武器表算 DV」「没有数字的句子不误判」「敌人无距离只压过来不打人」「敌人有距离按自己武器表 DV」；`tests/test_combat.py`、`tests/test_combat_scripts.py`、`tests/test_actors.py` 里依赖 DV15 的用例改为先 `C.close_range(..., "距离 8 米")` 再打。全量 **345 passed**。
+- `scripts/simulate.py`：`combat`/`multi` 场景开打后加「距离 8 米」，`actors` 的 Boss 战同样先报距离，`range` 场景把「15 米兜底」改成「先 `RANGE_ASK`，再报 20 米得到 DV20」；全量 **25/25**（假模型 31 次）。
+- 仍未做：爆炸破坏地形（墙/地板）、遮断/烟雾的 DV 修正、真实 QQ 2–3 人试玩（延后）。
+
+## 已完成：A1 致命伤 / 死亡豁免（2026-11-07）
+
+✅ 按 `full.txt:15730-15745`（致命伤状态）与 `full.txt:15943-15949`（死亡豁免）实现：PC 的 HP≤0 不再直接 `dead`，改为**致命伤 `mortal`**（还在先攻队列里，好让轮到自己时过死亡豁免）；每**回合自己动手前**投 `D10 < 体格(BODY)`：掷 10 必死，未达目标即死，成功则恢复 1 HP、清零死亡豁免惩罚、但**失去意识这一回合动不了**（消耗掉本回合动作）。已致命再挨打会 +1 死亡豁免惩罚。`Combatant` 增加 `mortal`/`body`/`death_save_penalty` 三字段（存进 `combatants.stat` JSON）；`body` 从角色卡 `stats.BODY` / 敌人 `enemies.json` 的 `stats.BODY` 读取（缺省 5）。`_death_check()` 抽为独立函数并在 `_advance` 轮到 PC 时调用。
+- 敌人不受致命伤规则影响：HP 归零仍直接 `dead`（死亡豁免只写 PC 的意识流；敌人本就没有“轮到自己”的口子）。
+- 测试：`tests/test_combat_scripts.py` 新增 6 项（PC 致命伤不倒下 / 豁免成功回 1HP 失去意识 / 掷 10 必死 / 掷到目标值失败 / 致命后再挨打惩罚 +1 / 敌人照旧直接死）；改 `test_flee_blocked_self_destruct_hits_everyone` 断言为 `mortal and not dead`。全量 **351 passed**。
+- simulate：新增 `mortal` 场景（场景 26），**26/26**（假模型 31 次）。
+
+剩余：A2 严重伤势（伤害骰出 ≥2 个 6 → 2D6 查身体/头部伤势表，±效果与死亡豁免惩罚）、A3 全自动射击、A4 弹药计数、A5 掩体打烂后的通行/视线。
+
+## 已完成：A2 严重伤势（2026-11-07）
+
+✅ 按 `full.txt:15743-15756`（触发：伤害骰 ≥2 个 6；投 2D6 查表**直到拿到目标还没有的伤势**；未瞄准头部查身体表；额外 5 点**不削护甲、不受部位倍率**）、`:15733-15741`（致命伤再挨打必得一个严重伤势）、`:15758-15930`（身体表/头部表 2–12 全部条目）实现。
+
+**规则引擎** `cyberpunk/crit.py`（新建）：`SERIOUS_EXTRA_DAMAGE=5`、`SERIOUS_TRIGGER_SIXES=2`、`CriticalInjury`（frozen dataclass，字段覆盖全表效果）、`BODY_INJURIES`/`HEAD_INJURIES`（2–12 与书逐条对齐）、`table_for()`、`roll_critical()`、`aggregate_crits()`、`BY_KEY`/`by_key()`。`cyberpunk/damage.py` 加 `roll_dice_full(roller, notation) -> (total, sixes)` 统计伤害骰里的 6 个数。
+
+**接线（`core/combat.py`）**——这次的重点是「属性骨架 → 真正消费」：
+- 触发：`maybe_serious_injury()`，PC 攻击（:1953 附近）与 `_enemy_turn`（:1802 后）都改成 `_roll_dice_full` 取六数；`was_mortal` 时 `force=True`（致命伤必得伤势），旁白照实说「💥 … 中了严重伤：… ——额外 5 点伤害」。
+- 攻击判定：远程 `+ranged_penalty`（失去眼睛/眼睛受损），近战 `+melee_penalty`（肌肉撕裂），敌人也吃自己的 `ranged_penalty`。
+- 防守：断腿 `no_dodge` 时近战不再掷闪避骰，直接判中并说明原因。
+- 头部倍率：`head_mult or 2`（颅骨骨裂 ×3），文案分「×2」与「颅骨骨裂 ×3」两版。
+- 移动：新增 `_move_budget(me, card) = max(1, MOVE - move_penalty)`，`act()` 移动/冲刺分支改用它（气胸 −2、腿骨折 −4、断腿 −6，最低 1 格）。
+- 步行伤势：新增 `_after_walk()`——单次移动 >2 格（4 米）时，`walk_damage`（肋骨骨折/体内异物/头部异物）当场再掉 5 点并出旁白；`no_move_next`（耳朵受损/失去耳朵）把下回合的移动动作锁掉。
+- 状态类：`Slot` 加 `no_action_round` / `no_move_round`（存回合号而不是布尔，`reset()` 每轮清布尔会把标记冲掉）；脊柱受伤 `no_action_next` 让下回合只能移动，不能攻击/装填等。
+- 顺手修的既有 bug：`Slot.extra_move` 原来被「跑」置 True 却**无人消费**（跑完不能多走）——现在移动分支会认它。
+- `crits` 随 `combatants.stat` JSON 存盘/读盘，受伤势写回角色卡一并保留。
+
+**测试**：`tests/test_crit.py` 新增 23 项（表 2–12 齐全、单个 6 不触发、双 6 触发气胸、额外 5 点不削护甲不受倍率、头部表、去重重掷、`force` 跳过六数、惩罚汇总、远程/近战判定扣值、伤口惩罚叠加、敌人也吃惩罚、断腿无法闪避、颅骨骨裂 ×3、移动预算 5→3→1、步行 2 格不发作 / 3 格掉 5、耳朵锁移动、脊柱锁动作、存盘往返）。改 4 个受影响的既有测试（骰子双 6 会被伤势吃骰，改 `[1,6,5,5]` 等并重算 HP）。全量 **374 passed**。`scripts/simulate.py` 新增 `crit` 场景（场景 27），**27/27**（假模型 31 次）。
+
+**未消费项（诚实记录）**：`no_speak`（气管破裂「无法说话」）、`visual_penalty`/`hearing_penalty` 目前没有判定入口——引擎里没有独立的「视觉/听力/说话」检定，等以后加感知检定或 NPC 对话限制时再接，规则书没给这三项的具体检定口径，按「约定」留空。
+
+剩余：A3 全自动射击、A4 弹药计数、A5 掩体打烂后的通行/视线。

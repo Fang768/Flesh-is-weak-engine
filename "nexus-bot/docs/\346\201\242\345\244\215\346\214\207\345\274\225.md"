@@ -1,0 +1,56 @@
+# 恢复指引：A3 全自动射击（进行中）
+
+> 目的：会话中途中断时，把真实代码状态与下一步固定下来，供新会话接着做。
+> 上一版（A2 进行中）已被本节取代；A2 已实现并全绿。
+
+## 上下文
+
+- 项目：`nexus-bot`（赛博朋克 RED 跑团 QQ 机器人，NoneBot2 + python，**非 git 仓库，无版本兜底**）。
+- 用户指令：从 A 档（A1→A5）逐个实现，每档做完自测全绿再报。
+  - A1 致命伤/死亡豁免：✅ 完成
+  - A2 严重伤势：✅ 完成（见下）
+  - **A3 全自动射击：当前**
+  - A4 弹药计数、A5 掩体打烂后的通行/视线：待做
+- 硬性自测命令：
+  - `./.venv/Scripts/python.exe -m pytest tests -q`
+  - `./.venv/Scripts/python.exe scripts/simulate.py`
+- 基线（A2 结束时）：pytest **374 passed** / simulate **27/27**。
+
+## A2 的完成形态（供 A3 参考已有接线方式）
+
+- `cyberpunk/crit.py`：严重伤势表 + `CriticalInjury` + `table_for/roll_critical/aggregate_crits/BY_KEY/by_key`。
+- `core/combat.py`：`maybe_serious_injury()`（`_roll_dice_full` 取六数、`force` 用于致命伤）；`attack()` 与 `_enemy_turn()` 都吃 `ranged_penalty`/`melee_penalty`；`no_dodge` 跳过闪避骰；`head_mult or 2`；`_move_budget()`；`_after_walk()`（>4 米触发 walk_damage、耳朵锁下回合移动）；`Slot.no_action_round`/`no_move_round`（脊柱只能移动）。
+- `crits` 存在 `combatants.stat` JSON 里，`load()`/`_save()` 都覆盖到了。
+- 测试：`tests/test_crit.py`（23 项）；simulate 场景 27 `crit`。
+- 未消费：`no_speak`、`visual_penalty`、`hearing_penalty`（没有对应检定入口，规则书未给口径，按「约定」留空）。
+
+## A3 全自动射击：规则书依据（rules/red_core/raw/full.txt）
+
+先按关键词检索确认口径再动手（`自动射击`/`全自动`/`连射`/`Autofire`），要点（**实现前必须逐条回原文核对**）：
+
+1. 全自动射击是**一次攻击检定**打一串子弹，不是多次攻击检定。
+2. 命中后伤害结算与单发不同：通常按「命中程度」每超过 DV 若干点就多命中一发（RED 核心书是每超过 DV 1 点算一发，最多 N 发），每发独立伤害骰，但**护甲每发都吃**（这一条要回原文确认：RED 是每发单独减 SP）。
+3. 弹药消耗：一次全自动打掉 10 发（弹匣容量/射速相关），A4 会接弹药计数，A3 阶段先按「扣掉 X 发」的接口预留。
+4. 有「扫射多个目标」的可选规则（把连发分摊到相邻格），如原文支持再实现。
+5. 常见附带：全自动对同一目标命中数受武器射速上限约束；大失败可能空仓/卡壳（看原文）。
+
+## 下一步清单（A3）
+
+1. 检索原文 `自动射击`/`全自动` 段落，抄下触发条件、命中数公式、伤害与护甲结算、弹药消耗、DV 修正（连发是否吃 −2 之类）。
+2. `core/combat.py`：`attack()` 增加全自动分支（识别玩家说「全自动/连射/扫射」），或新增 `autofire()`；伤害改成「多发 × 单发伤害」的结算循环，每发都减 SP，SP 磨损按发数累加。
+3. 与 A2 伤势联动：**每一发伤害骰都要独立统计六数**（多发全自动很容易出双 6）——注意别把多发的 6 合在一起算，也别忘了每发都可能触发伤势（同一次攻击里触发多次是否允许，回原文确认，大概率允许）。
+4. 弹药：先在 `grenades()`/`_spend_gear()` 那种模式上加「扣 N 发」的钩子，A4 再补完整弹药计数。
+5. 测试：`tests/test_autofire.py`（命中数公式、每发减 SP、多发触发多次伤势、弹药扣减、无弹药拒绝、单发路径不受影响）。
+6. `scripts/simulate.py` 加 `autofire` 场景（场景 28）。
+7. 更新 `docs/进度.md`、`docs/待办缺口.md`。
+
+## 会话纪律提示
+
+- 对话用**中文**；代码注释引用 `文件:行号`；规则书没写明的标「约定」。
+- 每小步自测（pytest + simulate）；报告三件事（改了什么/测了什么/还剩什么）。
+- **不要中途退出**：把整段实现做完、全绿再报告。
+- 改文件前先备份到 `backups/<文件名>.YYYYMMDD-<标签>.bak`（项目无 git 兜底）。
+- 若因环境/批准问题中断，先把本文件更新成最新真实状态再停。
+
+---
+（本文件由 2026-11-07 20:35 更新：A2 完成，转入 A3）
