@@ -1,8 +1,0 @@
-name: astrbot_plugin_nexus_gm
-display_name: NEXUS GM 第一幕动态非战斗主持
-version: 0.4.1-dev3
-author: neon-ashes-local
-desc: 第一幕动态非战斗主持、简化开场、自然角色DIY与安全暂停；不支持完整战斗
-astrbot_version: '>=4.29.4,<4.30'
-support_platforms:
-  - qq_official
