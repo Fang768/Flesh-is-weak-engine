@@ -129,6 +129,23 @@ WEAPON_DAMAGE = {
     "搏击": "1D6",
 }
 MELEE_SKILLS = {"近战武器", "武术", "搏击"}
+
+#: 全自动射击一次要打出去的子弹（full.txt:14802「一个动作 + 10 发子弹」）
+AUTOFIRE_ROUNDS = 10
+
+#: 各类武器的常见弹匣容量（weapons.json 里 SMG 20–50、步枪 5–35 的中位值）。
+#: 「约定」：玩家没写具体枪型时按类别取默认容量。
+_MAG_DEFAULT = {"手枪": 8, "冲锋枪": 30, "霰弹枪": 8, "突击步枪": 30,
+                "狙击步枪": 5, "弓": 1, "榴弹发射器": 6, "火箭筒": 1}
+
+
+def _mag_of(weapon: str | None) -> int:
+    """这件武器的默认弹匣容量。"""
+    return _MAG_DEFAULT.get(weapon or "", 8)
+
+
+#: 全自动命中数上限（书内页 173）：冲锋枪 3、突击步枪 4。表在地图模块里维护
+AUTOFIRE_MAX_HITS = gridmap.AUTOFIRE_MAX_HITS
 FALLBACK_SKILL = "手枪"
 DEFAULT_SP = 4
 
@@ -197,6 +214,11 @@ class Combatant:
     y: int = -1
     #: 没有地图时的距离（米）：encounter 的 range_m 或 DM 估的米数，0 = 没给
     range_m: int = 0
+    #: 弹匣里的余弹。-1 = 还没开始计数（按满弹匣算）；全自动射击要 10 发，
+    #: 所以 A3 先引入这个字段做门槛（full.txt:14802），单发计数留给 A4。
+    ammo: int = -1
+    #: 弹匣容量；0 = 按武器类别的常见值推（_MAG_DEFAULT）
+    mag: int = 0
     #: 开打时的落位提示（不落库；只有 start 用）
     spawn: tuple[int, int] | None = None
 
@@ -259,6 +281,11 @@ class Combatant:
     def no_move_next(self) -> bool:
         """耳朵受损：步行 >4m 之后的下个回合不能移动（full.txt:15912-15920）。"""
         return any(inj.no_move_next for inj in self.crits_list)
+
+    def rounds_left(self, weapon: str | None = None) -> int:
+        """弹匣里还剩几发。没开始计数（-1）按满弹匣算。"""
+        cap = self.mag or _mag_of(weapon)
+        return cap if self.ammo < 0 else max(0, min(self.ammo, cap))
 
     @property
     def wound_penalty(self) -> int:
@@ -485,6 +512,8 @@ def load(conn, group_id: str) -> Combat | None:
             crits = raw_stat.get("crits")
             if isinstance(crits, list):
                 c.crits = tuple(str(t) for t in crits)
+            c.ammo = int(raw_stat.get("ammo", c.ammo))
+            c.mag = int(raw_stat.get("mag", c.mag))
         if c.side == "pc":
             card = roster.get(conn, group_id, c.owner_qq) or easy_roster.get(
                 conn, group_id, c.owner_qq
@@ -505,7 +534,7 @@ def _stat_json(c: Combatant) -> str:
         "ref": c.ref, "dex": c.dex, "dodge": c.dodge, "skill": c.skill,
         "wound": c.wound, "range_m": c.range_m, "tags": list(c.tags),
         "mortal": c.mortal, "body": c.body, "death_save_penalty": c.death_save_penalty,
-        "crits": list(c.crits),
+        "crits": list(c.crits), "ammo": c.ammo, "mag": c.mag,
     }, ensure_ascii=False)
 
 
@@ -620,7 +649,8 @@ def _weapon_of(c: "Combatant", skill_name: str = "") -> str | None:
 
 
 def _shot_dv(combat: "Combat", me: "Combatant", target: "Combatant", *,
-             melee: bool, weapon: str | None) -> tuple[int | None, str]:
+             melee: bool, weapon: str | None,
+             autofire: bool = False) -> tuple[int | None, str]:
     """有地图时按格算 DV / 视线 / 近战相邻；没地图返回 (None, "")。"""
     game = _map_for(combat)
     if game is None or me.x < 0 or me.y < 0 or target.x < 0 or target.y < 0:
@@ -633,30 +663,34 @@ def _shot_dv(combat: "Combat", me: "Combatant", target: "Combatant", *,
     blockers = game.blockers(here, there)
     if blockers:
         return None, f"视线被{blockers[0]}挡住，这一枪打不出去。"
-    dv = game.dv(here, there, weapon) if weapon else None
+    dv = game.dv(here, there, weapon, autofire=autofire) if weapon else None
     if dv is None:
         return None, f"超出{weapon or '武器'}的射程（{game.meters(here, there)} 米），打不到。"
     return dv, ""
 
 
 def _range_dv(combat: "Combat", me: "Combatant", target: "Combatant", *,
-              melee: bool, weapon: str | None) -> tuple[int | None, str, str]:
+              melee: bool, weapon: str | None,
+              autofire: bool = False) -> tuple[int | None, str, str]:
     """这一枪的距离 DV。返回 (dv, 距离说明, 打不了的原因)。
 
     世界始终有场景，所以距离按优先级取：① 地图格子 ② 场景/遭遇写的
     `range_m` 或 DM 估的米数 ③ 都没有就**不猜**，返回 (None, "", RANGE_ASK)
     让 DM 或玩家先给距离（书内页 173 的 DV 只看距离，没有「中距默认值」）。
+
+    `autofire=True` 时查的是全自动距离表（书内页 173 有独立一张表）。
     """
     game = _map_for(combat)
     if game is not None and me.x >= 0 and me.y >= 0 and target.x >= 0 and target.y >= 0:
-        dv, problem = _shot_dv(combat, me, target, melee=melee, weapon=weapon)
+        dv, problem = _shot_dv(combat, me, target, melee=melee, weapon=weapon,
+                               autofire=autofire)
         meters = game.meters((me.x, me.y), (target.x, target.y))
         return dv, f"，{meters} 米", problem
     if melee:
         return None, "", ""
     if target.range_m > 0:
         name = weapon or DEFAULT_WEAPON
-        dv = gridmap.dv_for_meters(name, target.range_m)
+        dv = gridmap.dv_for_meters(name, target.range_m, autofire=autofire)
         if dv is None:
             return None, "", (f"超出{name}的射程（{target.range_m} 米），打不到。"
                               "换个目标，或者先靠近。")
@@ -1823,8 +1857,101 @@ def _enemy_turn(conn, combat: Combat, enemy: Combatant, roller,
 # ── 攻击 ──────────────────────────────────────────────────────
 
 
+def _autofire(conn, combat: "Combat", me: "Combatant", target: "Combatant", card,
+              aim_part: str | None, weapon: str | None,
+              roller: dice.Roller, slot) -> str:
+    """全自动射击：一个动作 + 10 发子弹（full.txt:14800-14813）。
+
+    判定用「自动武器」技能、查**全自动距离表**（不是普通距离表）；不能瞄准；
+    目标 REF≥8 时可以选择闪避（用 DEX+闪避 对抗替代 DV，:14691-14700）。
+    命中后先投 2D6 得伤害，再乘以「判定值 − DV」的差值，差值上限是武器标注
+    的数字（冲锋枪 3、突击步枪 4，map.AUTOFIRE_MAX_HITS）；护甲照常减一次。
+    两个伤害骰都是 6 时额外造成一次严重伤势（:14810）。
+    """
+    skill_name = "自动武器"
+    weapon = weapon or _weapon_of(me, skill_name) or DEFAULT_WEAPON
+    lines: list[str] = []
+
+    # ① 前置门槛：都不消耗动作（子弹没打出去）
+    if weapon not in AUTOFIRE_MAX_HITS:
+        return (f"{weapon}没有全自动模式。能扫射的只有冲锋枪和突击步枪"
+                "（full.txt:14800、:14816-14840）。")
+    if aim_part:
+        return "全自动射击不能瞄准（full.txt:14806）。想打准就用单发。"
+    left = me.rounds_left(weapon)
+    if left < AUTOFIRE_ROUNDS:
+        return (f"弹匣里只剩 {left} 发，全自动一次要打光 {AUTOFIRE_ROUNDS} 发"
+                "（full.txt:14800）。先装填，或者改用单发。")
+
+    dv, distance, problem = _range_dv(combat, me, target, melee=False,
+                                      weapon=weapon, autofire=True)
+    if problem:
+        if problem == RANGE_ASK:
+            return problem
+        lines.append(problem)
+        slot.action = True
+        _sync_pc_hp(conn, combat, me)
+        _advance(conn, combat, roller, lines)
+        _save(conn, combat)
+        return "\n".join(lines)
+
+    level = int((card.get("skills") or {}).get(skill_name, 0)) if card else 0
+    total = roller.roll(10) + me.ref + level
+    total += me.wound_penalty + me.ranged_penalty + modifier_for(combat, me)
+    mod_note = modifier_text(combat, me)
+
+    # ② 目标 REF≥8 可选闪避：用 DEX+闪避 对抗替代 DV
+    if target.ref >= 8:
+        threshold = roller.roll(10) + target.dex + target.dodge
+        lines.append(f"{me.name} 用{weapon}扫射 {target.name}：{total} vs 闪避 "
+                     f"{threshold}{distance}{mod_note}")
+    else:
+        threshold = dv
+        lines.append(f"{me.name} 用{weapon}扫射 {target.name}：{total} vs DV "
+                     f"{dv}{distance}{mod_note}")
+
+    slot.action = True
+    me.ammo = left - AUTOFIRE_ROUNDS
+    lines.append(f"打光 {AUTOFIRE_ROUNDS} 发，弹匣剩 {me.ammo} 发。")
+
+    # 平局守方胜（full.txt:14697），差值 0 也就没有伤害
+    if total <= threshold:
+        lines.append("没打中。")
+        _sync_pc_hp(conn, combat, me)
+        _advance(conn, combat, roller, lines)
+        _save(conn, combat)
+        return "\n".join(lines)
+
+    margin = total - threshold
+    hits = min(margin, AUTOFIRE_MAX_HITS[weapon])
+    damage, sixes = _roll_dice_full(roller, WEAPON_DAMAGE.get(skill_name, "2D6"))
+    raw = damage * hits
+    sp = target.effective_sp
+    taken = max(0, raw - sp)
+    was_mortal = target.mortal and target.hp >= 1
+    if taken:
+        target.sp_wear += 1
+
+    _apply_damage_hp(combat, target, taken, lines)
+    lines.append(f"命中：判定超出 {margin}，取 {hits} 发（{weapon}上限 "
+                 f"{AUTOFIRE_MAX_HITS[weapon]}）→ {damage}×{hits}={raw}，"
+                 f"护甲挡 {min(raw, sp)}，打掉 {taken} 血。")
+    if sixes >= SERIOUS_TRIGGER_SIXES or (was_mortal and taken):
+        maybe_serious_injury(combat, target, sixes, head=False, roller=roller,
+                             lines=lines, force=(was_mortal and taken))
+    lines.append(f"{target.name}：{target.line()}")
+
+    _sync_pc_hp(conn, combat, me)
+    _check_over(combat, lines)
+    if combat.active:
+        _advance(conn, combat, roller, lines)
+    _save(conn, combat)
+    return "\n".join(lines)
+
+
 def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
            skill: str | None = None, aim: str | None = None,
+           autofire: bool = False, weapon: str | None = None,
            roller: dice.Roller | None = None) -> str:
     roller = roller or dice.RandomRoller()
     combat = load(conn, group_id)
@@ -1889,6 +2016,11 @@ def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
     melee = skill_name in MELEE_SKILLS
     aim_part = AIM_PARTS.get((aim or "").strip()) if aim else None
     penalty = AIM_PENALTY if aim_part else 0
+
+    # 全自动射击走独立结算（不同技能、不同 DV 表、伤害乘算），见 _autofire
+    if autofire:
+        return _autofire(conn, combat, me, target, card, aim_part,
+                         weapon or _weapon_of(me, "自动武器"), roller, slot)
 
     lines: list[str] = []
     if aim_part:
@@ -2544,8 +2676,29 @@ SKILL_HINTS = {
 }
 
 
+#: 全自动射击的说法（「约定」：规则书只写「全自动射击」，这些是玩家口语）
+AUTOFIRE_HINTS = ("全自动", "连射", "扫射", "连发", "突突", "哒哒")
+
+
+def looks_like_autofire(text: str) -> bool:
+    """这句话是不是在要求全自动射击（一个动作 + 10 发，full.txt:14800）。"""
+    return any(h in (text or "") for h in AUTOFIRE_HINTS)
+
+
 def looks_like_attack(text: str) -> bool:
-    return any(h in (text or "") for h in ATTACK_HINTS)
+    # 扫射/全自动本身就是攻击动作，不必再说「打他」
+    return (any(h in (text or "") for h in ATTACK_HINTS)
+            or looks_like_autofire(text))
+
+
+def autofire_weapon_from_text(text: str) -> str | None:
+    """从话里认出全自动的枪型；认不出返回 None（由角色卡上的武器兜底）。"""
+    body = text or ""
+    if "突击" in body or "步枪" in body:
+        return "突击步枪"
+    if "冲锋" in body or "机枪" in body or "smg" in body.lower():
+        return "冲锋枪"
+    return None
 
 
 def skill_from_text(text: str) -> str | None:

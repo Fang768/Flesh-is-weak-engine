@@ -1480,6 +1480,100 @@ async def sc_crit(s: Sim) -> None:
     conn.close()
 
 
+async def sc_autofire(s: Sim) -> None:
+    """A3：全自动射击（一个动作 + 10 发；伤害 = 2D6 × 判定差值，封顶）。"""
+    print("【场景 28】A3 全自动射击：弹药门槛、专用 DV 表、伤害乘算")
+    conn = db.connect(":memory:")
+    gid = "qq:AUTOFIRE"
+
+    card = roster.build(template="独狼", name="阿飞",
+                        skill_overrides={"自动武器": 6})
+    roster.save(conn, gid, "u1", card)
+    combat.start(conn, gid,
+                 enemies=[{"name": "打手", "count": 1, "range_m": 8}],
+                 roller=dice.ScriptedRoller([9, 2]))
+    f = combat.load(conn, gid)
+    pc = next(c for c in f.order if c.side == "pc")
+    f.turn_index = f.order.index(pc)
+    combat._save(conn, f)
+
+    # 1) 只有冲锋枪/突击步枪有全自动
+    bad = combat.attack(conn, gid, "u1", "打手", autofire=True, weapon="手枪",
+                        roller=dice.ScriptedRoller([10, 3, 3]))
+    show("手枪", "全自动", bad)
+    expect("没有全自动模式" in bad, "手枪没有全自动模式，直接拒绝")
+
+    # 2) 不能瞄准
+    bad = combat.attack(conn, gid, "u1", "打手", autofire=True, weapon="冲锋枪",
+                        aim="头部", roller=dice.ScriptedRoller([10, 3, 3]))
+    show("瞄准", "全自动", bad)
+    expect("不能瞄准" in bad, "全自动不能瞄准（full.txt:14806）")
+
+    # 3) 弹匣不足 10 发也不能打
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    me.ammo = 9
+    combat._save(conn, f)
+    bad = combat.attack(conn, gid, "u1", "打手", autofire=True, weapon="冲锋枪",
+                        roller=dice.ScriptedRoller([10, 3, 3]))
+    show("9 发", "全自动", bad)
+    expect("只剩 9 发" in bad, "不足 10 发不能全自动，也不扣动作")
+
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    me.ammo = -1
+    combat._save(conn, f)
+
+    # 4) 正常扫射：8 米冲锋枪全自动 DV 17（单发在这档是 13）
+    hit = combat.attack(conn, gid, "u1", "打手", autofire=True, weapon="冲锋枪",
+                        roller=dice.ScriptedRoller([10, 3, 3, 1]))
+    show("扫射", "冲锋枪 8 米", hit)
+    expect("vs DV 17" in hit, "走全自动距离表：8 米 DV 17，不是单发的 13")
+    expect("取 3 发" in hit, "判定超出 6 点，封顶取 3 发（冲锋枪上限 3）")
+    expect("打掉 14 血" in hit, "2D6=6，×3=18，护甲 4 → 打掉 14")
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    show("弹药", "打完", f"弹匣 {me.rounds_left('冲锋枪')}/{me.mag or 30}")
+    expect(me.ammo == 20, "打光 10 发，弹匣 30 → 20")
+
+    # 5) 突击步枪上限 4
+    combat.end(conn, gid)
+    combat.start(conn, gid,
+                 enemies=[{"name": "打手", "count": 1, "range_m": 14}],
+                 roller=dice.ScriptedRoller([9, 2]))
+    f = combat.load(conn, gid)
+    pc = next(c for c in f.order if c.side == "pc")
+    f.turn_index = f.order.index(pc)
+    combat._save(conn, f)
+    rifle = combat.attack(conn, gid, "u1", "打手", autofire=True, weapon="突击步枪",
+                          roller=dice.ScriptedRoller([10, 3, 2, 1]))
+    show("扫射", "突击步枪 14 米", rifle)
+    expect("vs DV 17" in rifle, "14 米落在 13-25 档，突击步枪 DV 17")
+    expect("取 4 发" in rifle, "差值再大也只取 4 发（突击步枪上限 4）")
+
+    # 6) 目标 REF≥8 可以用闪避对抗替代 DV
+    combat.end(conn, gid)
+    combat.start(conn, gid,
+                 enemies=[{"name": "头目", "count": 1, "range_m": 8}],
+                 roller=dice.ScriptedRoller([9, 2]))
+    f = combat.load(conn, gid)
+    pc = next(c for c in f.order if c.side == "pc")
+    f.turn_index = f.order.index(pc)
+    combat._save(conn, f)
+    dodge = combat.attack(conn, gid, "u1", "头目", autofire=True, weapon="冲锋枪",
+                          roller=dice.ScriptedRoller([10, 10, 3, 3, 3, 3]))
+    show("闪避", "头目 REF8", dodge)
+    expect("vs 闪避" in dodge, "REF≥8 的目标选择闪避，用 DEX+闪避 对抗")
+
+    # 7) 弹药写进 stat，读盘后还在
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    show("存盘", "ammo/mag", f"ammo={me.ammo} mag={me.mag or '按武器推'}")
+    expect(me.ammo == 20 and me.rounds_left("冲锋枪") == 20,
+           "弹药随战斗存盘/读盘保留（弹匣容量按武器类别推）")
+    conn.close()
+
+
 SCENARIOS = {
     "cold": sc_cold_start,
     "perm": sc_permission,
@@ -1508,6 +1602,7 @@ SCENARIOS = {
     "scenemove": sc_scene_move,
     "mortal": sc_mortal,
     "crit": sc_crit,
+    "autofire": sc_autofire,
 }
 
 

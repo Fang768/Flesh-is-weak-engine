@@ -590,6 +590,10 @@ async def handle(
     if fight is not None and combat.looks_like_attack(text):
         skill = combat.skill_from_text(text)
         target = combat.target_from_text(fight, text)
+        # 全自动射击：换技能、换 DV 表、伤害乘算（full.txt:14800-14813）
+        autofire = combat.looks_like_autofire(text)
+        if autofire:
+            skill = "自动武器"
         # 距离必须来自场景：没地图数据时让 DM 估一次；估不出来就不猜 DV，
         # attack() 会请玩家明说米数（返回 RANGE_ASK，不消耗动作）。
         if combat._map_for(fight) is None:
@@ -602,6 +606,8 @@ async def handle(
                 user_id,
                 target,
                 skill=skill,
+                autofire=autofire,
+                weapon=combat.autofire_weapon_from_text(text) if autofire else None,
                 roller=roller,
             )
         except combat.CombatError as exc:
@@ -611,7 +617,7 @@ async def handle(
             group_id=group_id,
             kind="roll",
             campaign_id=campaign.id,
-            summary=f"攻击 {target}（{skill or '自动挑技能'}）",
+            summary=("全自动射击 " if autofire else "攻击 ") + (target or "…"),
             actor=user_id,
         )
         tail = _aftermath(group_id, campaign, story_id)
