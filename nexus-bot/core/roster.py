@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from cyberpunk import perks as perks_mod
+from cyberpunk import cyber_bonus, perks as perks_mod
 from cyberpunk.characters import Character as RulesCharacter
 from cyberpunk.names import normalize_template_skill, stats_en_to_zh, to_zh
 from cyberpunk.stats import STAT_MAX, STAT_MIN, STAT_ORDER, derived
@@ -200,11 +200,16 @@ def derived_of(character: Character) -> dict[str, int]:
 
 
 def to_character(card: Character) -> "RulesCharacter":
-    """存档里的 dict 卡 → 规则引擎的 Character（派生属性现算）。"""
+    """存档里的 dict 卡 → 规则引擎的 Character（派生属性现算）。
+
+    ``cyber_mod`` 由义体表达成（骨肉织绕 体格+2 之类），运行时生效、
+    不写死 ``card["stats"]``（避免越出 ``validate_stats``）。
+    """
     return RulesCharacter(
         name=card["name"],
         stats={k: int(v) for k, v in card["stats"].items()},
         skills={k: int(v) for k, v in card.get("skills", {}).items()},
+        cyber_mod=cyber_bonus.attribute_bonus(card),
     )
 
 

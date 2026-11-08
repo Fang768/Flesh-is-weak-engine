@@ -112,6 +112,34 @@ def test_record_render(conn):
     assert "霓虹血债" in card_flow.record("g3")
 
 
+def test_cyber_bonus_applies_to_awareness_check(conn):
+    """装过「显微目镜」(RED 义体) 的卡，觉察检定应 +2（full.txt:28288）。"""
+    from core import roster
+
+    card = roster.build(template="独狼", name="客A")
+    card["state"] = {"cyber": ["显微目镜"]}
+    roster.save(conn, "gx", "ux", card)
+
+    hit = card_flow.check(
+        "gx", "ux", "觉察", roller=ScriptedRoller([5]),
+    )
+    # +2 义体加成要体现在回执里
+    assert "显微目镜" in hit
+
+
+def test_cyber_bonus_not_for_unrelated_skill(conn):
+    """装过「显微目镜」，但这次检定的是手枪 → 不加义体加成。"""
+    from core import roster
+
+    card = roster.build(template="独狼", name="客B")
+    card["state"] = {"cyber": ["显微目镜"]}
+    roster.save(conn, "gy", "uy", card)
+
+    hit = card_flow.check("gy", "uy", "手枪", roller=ScriptedRoller([5]))
+    assert "显微目镜" not in hit
+    assert "（义体" not in hit
+
+
 def test_looks_meta_detects_system_talk():
     for text in (
         "给我一个角色",

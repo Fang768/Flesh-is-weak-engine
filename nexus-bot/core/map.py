@@ -74,6 +74,8 @@ class Cover:
     y: int
     hp: int = 20
     blocks_los: bool = True
+    #: 材质。空串 = 未知（书内页 183 表没写材质），按普通掩体算。
+    material: str = ""
 
     @property
     def alive(self) -> bool:
@@ -380,6 +382,7 @@ def _parse(data: dict, source: str) -> GameMap:
                 y=int(obj["y"]),
                 hp=int(obj.get("hp", 20)),
                 blocks_los=bool(obj.get("blocks_los", True)),
+                material=str(obj.get("material", "")),
             )
         )
     spawns = {}

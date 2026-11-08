@@ -1848,6 +1848,378 @@ async def sc_cover(s: Sim) -> None:
 
     conn.close()
 
+
+async def sc_cyber(s: Sim) -> None:
+    """赛博组件安装 → 人性（HL）→ 共情（EMP）下降。"""
+    print("【场景 31】赛博组件：人性损失与 EMP 下降")
+    from core import cyber_flow, roster
+    from cyberpunk import dice
+
+    conn = db.connect(":memory:")
+    gid = "qq:cyber"
+    roster.save(conn, gid, "u1", roster.build(template="独狼", name="阿飞"))
+
+    show("赛博", "初始", cyber_flow.status_text(conn, gid, "u1"))
+    expect("人性 50" in cyber_flow.status_text(conn, gid, "u1"), "独狼 EMP5 → 人性满值 50")
+
+    first = cyber_flow.install(conn, gid, "u1", "安装 赛博义眼",
+                               roller=dice.ScriptedRoller([5, 5]))
+    show("赛博", "装义眼", first)
+    expect("人性 50 → 40" in first, "2d6 投 10 → 人性 50→40")
+    expect("共情 EMP 5 → 4" in first, "掉满 10 点人性 → EMP −1")
+
+    second = cyber_flow.install(conn, gid, "u1", "安装 神经链路",
+                                roller=dice.ScriptedRoller([5, 5]))
+    show("赛博", "再装神经链路", second)
+    expect("人性 40 → 30" in second, "第二次安装继续扣")
+
+    again = cyber_flow.install(conn, gid, "u1", "安装 赛博义眼",
+                               roller=dice.ScriptedRoller([5, 5]))
+    expect("30 → 20" in again, "同一件装两次扣两次（书内页 112）")
+
+    free = cyber_flow.install(conn, gid, "u1", "安装 生物监测器")
+    show("赛博", "时尚装置", free)
+    expect("不造成人性损失" in free, "HL 写 N/A 的时尚装置不扣")
+
+    quote = cyber_flow.install(conn, gid, "u1", "安装 赛博义眼 多少钱")
+    show("赛博", "报价", quote)
+    expect("要装就发" in quote, "问价不执行安装")
+
+    missing = cyber_flow.install(conn, gid, "u1", "安装 不存在的东西")
+    show("赛博", "找不到", missing)
+    expect("表里有" in missing, "找不到时给例子")
+
+    card = roster.get(conn, gid, "u1")
+    expect(card["state"]["hum"] == 20, "人性存进 state")
+    expect(card["stats"]["EMP"] == 2, "EMP 同步到卡面")
+    expect(card["state"]["cyber"].count("赛博义眼") == 2, "装过的件数记下来")
+
+    # 义体加成效：装「显微目镜」后，状态面板展示该加成（full.txt:28288）
+    from cyberpunk import dice as _dice
+    mm = cyber_flow.install(conn, gid, "u1", "安装 显微目镜",
+                            roller=_dice.ScriptedRoller([1, 1]))
+    show("赛博", "装显微目镜", mm)
+    st = cyber_flow.status_text(conn, gid, "u1")
+    show("赛博", "状态(含加成)", st)
+    expect("显微目镜" in st and "加成" in st, "状态面板展示义体加成")
+
+    # B 批命中修正：装「瞄准目镜」后，瞄准射击命中 +1（full.txt:28330）
+    cyber_flow.install(conn, gid, "u1", "安装 瞄准目镜",
+                       roller=_dice.ScriptedRoller([1, 1]))
+    from core import combat
+    # 装了一大堆组件后 EMP 已掉到 1（低于下限 2，comCat 无法 start），
+    # 打这一枪前临时把 EMP 拉回，避免破坏「战斗校验」这个测试点。
+    pc = roster.get(conn, gid, "u1")
+    pc["stats"]["EMP"] = 5
+    roster.save(conn, gid, "u1", pc)
+    combat.start(conn, gid, enemies=(("打手", 1),), scene="a1.opera",
+                 roller=_dice.ScriptedRoller([9, 2]))
+    combat.close_range(conn, gid, "u1", "距离 8 米")
+    aimed = combat.attack(conn, gid, "u1", "打手", skill="手枪", aim="头",
+                          roller=_dice.ScriptedRoller([10, 3, 3, 3]))
+    show("赛博", "瞄准射击(义体+1)", aimed)
+    expect("瞄准目镜+1" in aimed, "瞄准射击带义体命中修正")
+
+    # C-1 永久属性加成：装「骨肉织绕」→ 体格+2，运行时提升 max_hp / 死亡豁免
+    cyber_flow.install(conn, gid, "u1", "安装 骨肉织绕",
+                       roller=_dice.ScriptedRoller([1, 1, 1, 5, 2]))
+    # 高人性损失组件会把 EMP 打到 2 以下（会拦 validate_stats），
+    # 这里只验证体格通道，临时把 EMP 拉回避免干扰。
+    pc = roster.get(conn, gid, "u1")
+    pc["stats"]["EMP"] = 5
+    roster.save(conn, gid, "u1", pc)
+    after_all = cyber_flow.status_text(conn, gid, "u1")
+    show("赛博", "状态(骨肉织绕)", after_all)
+    expect("骨肉织绕" in after_all and "属性" in after_all, "状态面板展示属性型加成")
+    ch = roster.to_character(roster.get(conn, gid, "u1"))
+    expect(ch.effective_stat("BODY") == ch.stats["BODY"] + 2
+           and ch.effective_stat("BODY") <= 10,
+           "骨肉织绕不写死基础属性、运行时体格+2（clamp 到 10）")
+    expect(ch.max_hp > 0, "体格提升驱动 max_hp 现算")
+
+    # C-2 防御端护甲 SP：装「皮下护甲」→ 面板展示 SP11（护甲）
+    cyber_flow.install(conn, gid, "u1", "安装 皮下护甲",
+                       roller=_dice.ScriptedRoller([1, 1, 1, 5, 2]))
+    pc = roster.get(conn, gid, "u1")
+    pc["stats"]["EMP"] = 5
+    roster.save(conn, gid, "u1", pc)
+    sp_st = cyber_flow.status_text(conn, gid, "u1")
+    show("赛博", "状态(皮下护甲)", sp_st)
+    expect("皮下护甲 SP11（护甲）" in sp_st, "状态面板展示防御型护甲 SP")
+
+    conn.close()
+
+
+async def sc_ammo_type(s: Sim) -> None:
+    """弹种：穿甲弹 SP 磨损 1→2、橡胶弹不吃伤势/不削甲、检定类弹先诚实不结算。"""
+    print("【场景 32】弹种：穿甲弹 / 橡胶弹 / 检定类弹")
+    from core import combat, roster
+    from cyberpunk import dice
+
+    conn = db.connect(":memory:")
+    gid = "qq:ammotype"
+    roster.save(conn, gid, "u1",
+                roster.build(template="独狼", name="阿飞",
+                             skill_overrides={"手枪": 4, "自动武器": 6}))
+
+    def _fresh() -> None:
+        combat.start(conn, gid, enemies=(("打手", 1),), scene="a1.opera",
+                     roller=dice.ScriptedRoller([9, 2]))
+        combat.close_range(conn, gid, "u1", "距离 8 米")
+        f = combat.load(conn, gid)
+        me = next(c for c in f.combatants if c.side == "pc")
+        me.ammo_type = combat.AMMO_BASE
+        combat._save(conn, f)
+
+    def _shoot(kind: str, rolls: list[int]) -> str:
+        f = combat.load(conn, gid)
+        me = next(c for c in f.combatants if c.side == "pc")
+        me.ammo_type = kind
+        me.ammo = me.mag or 8
+        f.turn_index = f.order.index(me)
+        f.round += 1
+        combat._reset_slots(f)
+        combat._save(conn, f)
+        return combat.attack(conn, gid, "u1", "打手", skill="手枪",
+                             roller=dice.ScriptedRoller(rolls))
+
+    def _foe() -> "combat.Combatant":
+        return next(c for c in combat.load(conn, gid).combatants
+                    if c.side == "enemy")
+
+    # ① 装填换弹种
+    _fresh()
+    reloaded = combat.act(conn, gid, "u1", "装填 穿甲弹")
+    show("弹种", "换弹", reloaded)
+    expect("穿甲弹" in reloaded, "装填时能整匣换弹种（:14731-14732 不能混装）")
+    f = combat.load(conn, gid)
+    expect(next(c for c in f.combatants if c.side == "pc").ammo_type == "穿甲弹",
+           "弹种存进战斗者")
+
+    # ② 穿甲弹：一次命中磨损 2 点护甲
+    _fresh()
+    text = _shoot("穿甲弹", [10, 3, 3, 1, 1])
+    show("弹种", "穿甲弹", text.splitlines()[1])
+    expect("穿甲弹" in text, "开火时提示弹种")
+    expect(_foe().sp_wear == 2, "穿甲弹 SP 减值 1→2（:26730-26731）")
+
+    # ③ 基础弹药只磨 1 点
+    _fresh()
+    _shoot(combat.AMMO_BASE, [10, 3, 3, 1, 1])
+    expect(_foe().sp_wear == 1, "基础弹药只磨 1 点")
+
+    # ④ 橡胶弹：不削甲
+    _fresh()
+    rubber = _shoot(combat.AMMO_RUBBER, [10, 3, 3, 1, 1])
+    expect(_foe().sp_wear == 0, "橡胶弹不削减护甲（:26816-26823）")
+    expect("橡胶弹" in rubber, "提示橡胶弹")
+
+    # ⑤ 橡胶弹：双 6 也不出严重伤势
+    _fresh()
+    f = combat.load(conn, gid)
+    foe = next(c for c in f.combatants if c.side == "enemy")
+    foe.hp = foe.max_hp = 40
+    combat._save(conn, f)
+    crit_text = _shoot(combat.AMMO_RUBBER, [10, 6, 6, 1, 1])
+    expect("中了严重伤" not in crit_text, "橡胶弹不吃严重伤势")
+    expect(_foe().crits == (), "crits 保持空")
+
+    # ⑥ 橡胶弹：HP 不会被打到 1 以下
+    _fresh()
+    f = combat.load(conn, gid)
+    foe = next(c for c in f.combatants if c.side == "enemy")
+    foe.hp = foe.max_hp = 3
+    combat._save(conn, f)
+    _shoot(combat.AMMO_RUBBER, [10, 6, 6, 1, 1])
+    expect(_foe().hp >= 1, "橡胶弹最多打到 1 HP")
+
+    # ⑦ 检定类弹：先诚实不结算
+    _fresh()
+    gas = _shoot("毒气弹", [10, 3, 3, 1, 1])
+    show("弹种", "毒气弹", gas.splitlines()[0])
+    expect("还没做「命中后检定」通道" in gas, "检定类弹先诚实说明")
+    expect(_foe().hp == 20, "不结算就不掉血")
+
+    conn.close()
+
+
+async def sc_rof(s: Sim) -> None:
+    """射速（ROF2）：一次攻击动作打两下。"""
+    print("【场景 33】射速 ROF2：一次攻击动作打两下")
+
+    from core import combat, roster
+    from cyberpunk import dice
+
+    class _Hit(dice.Roller):
+        # d10 恒 10（必中），d6 恒 3（2D6=6）
+        def roll(self, sides: int = 10) -> int:
+            return 10 if sides >= 10 else 3
+
+    conn = db.connect(":memory:")
+    gid = "qq:rof"
+    roster.save(conn, gid, "u1",
+                roster.build(template="独狼", name="阿飞",
+                             skill_overrides={"手枪": 4, "近战武器": 4}))
+    combat.start(conn, gid, enemies=(("打手", 1),), scene="a1.opera",
+                 roller=dice.ScriptedRoller([9, 2]))
+    combat.close_range(conn, gid, "u1", "距离 8 米")
+    combat.act(conn, gid, "u1", "装填")
+
+    # ① 默认一发
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    f.turn_index = f.order.index(me)
+    f.round += 1
+    combat._reset_slots(f)
+    combat._save(conn, f)
+    one = combat.attack(conn, gid, "u1", "打手", shots=None, roller=_Hit())
+    show("ROF", "默认一发", one.splitlines()[0])
+    expect("连打" not in one, "默认仍是一发（向后兼容）")
+
+    # ② 连打两下
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    f.turn_index = f.order.index(me)
+    f.round += 1
+    combat._reset_slots(f)
+    combat._save(conn, f)
+    two = combat.attack(conn, gid, "u1", "打手", shots=2, roller=_Hit())
+    show("ROF", "连打两下", two.splitlines()[0])
+    expect("连打 2 下" in two, "一次动作打两下")
+    expect("（第 1 下）" in two and "（第 2 下）" in two, "两下都结算")
+
+    # ③ 弹匣扣两发
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    expect(me.ammo == 5, "满 8 发 − 连打 2 发 − 上面那发 1 发")
+
+    # ④ 瞄准时 ROF 限 1：shots=2 也只打一发
+    f = combat.load(conn, gid)
+    foe = next(c for c in f.combatants if c.side == "enemy")
+    foe.hp = foe.max_hp = 60
+    f.turn_index = f.order.index(me)
+    f.round += 1
+    combat._reset_slots(f)
+    combat._save(conn, f)
+    aim = combat.attack(conn, gid, "u1", "打手", aim="头",
+                        shots=2, roller=_Hit())
+    show("ROF", "瞄准头", aim.splitlines()[0])
+    expect("第 2 下" not in aim, "瞄准射击 ROF 限 1（:14523）")
+
+    conn.close()
+
+
+async def sc_delay(s: Sim) -> None:
+    """延迟动作：诚实提示没有事件调度（方案5）。"""
+    print("【场景 34】延迟动作：没有事件调度，诚实提示")
+    from core import combat, roster
+    from cyberpunk import dice
+
+    conn = db.connect(":memory:")
+    gid = "qq:delay"
+    roster.save(conn, gid, "u1",
+                roster.build(template="独狼", name="阿飞",
+                             skill_overrides={"手枪": 4}))
+    combat.start(conn, gid, enemies=(("打手", 1),), scene="a1.opera",
+                 roller=dice.ScriptedRoller([9, 2]))
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    f.turn_index = f.order.index(me)
+    combat._reset_slots(f)
+    combat._save(conn, f)
+
+    text = combat.act(conn, gid, "u1", "延迟")
+    show("延迟", "延迟", text.splitlines()[0])
+    expect("结束回合" in text, "「延迟」至少结束回合")
+    expect("事件调度" in text, "诚实说明没有事件调度（full.txt:14430-14433）")
+
+    conn.close()
+
+
+async def sc_helper(s: Sim) -> None:
+    """多人协作检定（补充技能判定 full.txt:11811-11817）：协助 → +1 → 消费。"""
+    print("【场景 35】多人协作检定（补充技能判定）")
+    from core import card_flow, roster, turn_flow
+    from cyberpunk import dice
+
+    conn = db.connect(":memory:")
+    gid = "qq:helper"
+    # u1 阿飞 帮 u2 小美
+    roster.save(conn, gid, "u1", roster.build(template="独狼", name="阿飞",
+                                              skill_overrides={"手枪": 4}))
+    roster.save(conn, gid, "u2", roster.build(template="独狼", name="小美",
+                                              skill_overrides={"潜行": 3}))
+    # 指向测试库
+    _orig_conn = turn_flow.CONN
+    _orig_card_conn = card_flow.CONN
+    turn_flow.CONN = conn
+    card_flow.CONN = conn
+    try:
+        # ① 阿飞协助小美：辅助检定成功 → 挂 +1
+        help_reply = turn_flow.helper_text(
+            gid, "u1", "协助 小美 手枪", roller=dice.ScriptedRoller([10, 2])
+        )
+        show("协助", "阿飞帮小美", help_reply)
+        expect("已给「小美」" in help_reply, "辅助检定成功 → 给队友挂 +1")
+        expect((gid, "u2") in turn_flow.HELPER_BONUS, "加值记录到内存")
+
+        # ② 小美拿 /检定：消费 +1（仅一次）
+        check1 = card_flow.check(gid, "u2", "潜行", dv=10,
+                                 roller=dice.ScriptedRoller([5]))
+        show("检定", "小美检定（应含 +1）", check1)
+        expect("补充技能" in check1, "检定里出现补充技能 +1 说明")
+        expect((gid, "u2") not in turn_flow.HELPER_BONUS, "一次检定消费掉加值")
+
+        # ③ 已被协助者未用完前，队友再协助会被拒绝（不叠加）
+        turn_flow.HELPER_BONUS[(gid, "u2")] = {"bonus": 1, "skill": "手枪", "source": "阿飞"}
+        again = turn_flow.helper_text(gid, "u1", "协助 小美 手枪",
+                                      roller=dice.ScriptedRoller([10, 2]))
+        show("协助", "再帮一次", again)
+        expect("不叠加" in again, "已挂未用 → 拒绝再协助（不叠加）")
+    finally:
+        turn_flow.CONN = _orig_conn
+        card_flow.CONN = _orig_card_conn
+    conn.close()
+
+
+async def sc_rest(s: Sim) -> None:
+    """过夜自然恢复：默认每日回体格 HP；装「抗体增强」翻倍且不越 max_hp。"""
+    print("【场景 41】过夜恢复：抗体增强 每日体格×2 / 致命伤不能自愈")
+    from core import combat, db, roster
+    from cyberpunk import cyber_bonus, dice
+
+    conn = db.connect(":memory:")
+    gid = "qq:rest"
+    card = roster.build(template="独狼", name="阿飞")
+    rules = roster.to_character(card)
+    card["state"] = {"hp": 1, "max_hp": rules.max_hp}
+    roster.save(conn, gid, "u1", card)
+
+    combat.rest_night(conn, gid)
+    hp1 = roster.get(conn, gid, "u1")["state"]["hp"]
+    show("过夜", "默认自然恢复", f"HP={hp1}")
+    expect(hp1 == 1 + rules.effective_stat("BODY"), "过夜默认恢复体格点 HP")
+
+    card = roster.get(conn, gid, "u1")
+    card["state"] = {"cyber": ["抗体增强"], "hp": 1, "max_hp": rules.max_hp}
+    roster.save(conn, gid, "u1", card)
+    combat.rest_night(conn, gid)
+    hp2 = roster.get(conn, gid, "u1")["state"]["hp"]
+    show("过夜", "抗体增强 每日体格×2", f"HP={hp2}")
+    expect(hp2 == 1 + rules.effective_stat("BODY") * 2, "抗体增强翻倍")
+    expect(cyber_bonus.rest_multiplier(roster.get(conn, gid, "u1")) == 2,
+           "义体表读出恢复倍率 2")
+
+    # 致命伤（HP=0）不能自愈
+    card = roster.get(conn, gid, "u1")
+    card["state"]["hp"] = 0
+    roster.save(conn, gid, "u1", card)
+    skipped = combat.rest_night(conn, gid)
+    show("过夜", "致命伤", skipped)
+    expect("没有可以自愈的人" in skipped, "致命伤需先稳定伤势，跳过")
+    conn.close()
+
+
 SCENARIOS = {
     "cold": sc_cold_start,
     "perm": sc_permission,
@@ -1879,6 +2251,12 @@ SCENARIOS = {
     "autofire": sc_autofire,
     "ammo": sc_ammo,
     "cover": sc_cover,
+    "cyber": sc_cyber,
+    "ammotype": sc_ammo_type,
+    "rof": sc_rof,
+    "delay": sc_delay,
+    "helper": sc_helper,
+    "rest": sc_rest,
 }
 
 

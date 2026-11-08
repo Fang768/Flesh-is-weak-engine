@@ -13,7 +13,7 @@ import re as _re
 from core import backup, easy_roster, events, growth, hazards, llm, party, roster
 from core.runtime import CONN, GATE
 from core.session import Mode
-from cyberpunk import checks, commands, dice, easy
+from cyberpunk import checks, commands, cyber_bonus, dice, easy
 from cyberpunk.characters import Character
 
 ACTIONS = {"create", "modify", "show", "chat"}
@@ -233,6 +233,10 @@ def _plain_command(group_id: str, user_id: str, text: str) -> str | None:
     _back = _backup_commands(group_id, user_id, body)
     if _back is not None:
         return _back
+    if _re.fullmatch(r"/?(?:义体清单|赛博组件|我的义体|改造|人性|cyberware)", body):
+        from core import cyber_flow as _cy
+
+        return _cy.status_text(CONN, group_id, user_id)
     if _re.fullmatch(r"(?:线索|clues)", body):
         from core import clues as _cl
 
@@ -424,6 +428,31 @@ def check(
     if not skill:
         return "用法：检定 潜行（可以加「难度 18」）"
 
+    # 多人协作检定：若挂着队友的补充技能 +1（full.txt:11811-11817），这次检定就消费掉。
+    # 读走即删，仅一次、不叠加。辅助者本人帮人时这里通常为空，不会误消费。
+    helper_note = ""
+    try:
+        from core.turn_flow import pop_helper_bonus
+        helper = pop_helper_bonus(group_id, user_id)
+        if helper is not None:
+            mods = mods + (int(helper["bonus"]),)
+            helper_note = ("\n（补充技能：" + str(helper["source"]) + " 协助，"
+                           + str(helper["skill"] or "相关技能") + " +1，full.txt:11811）")
+    except Exception:  # noqa: BLE001  消费失败时不阻断正常检定
+        helper_note = ""
+
+    # 义体加成：已装的赛博组件（RED 义体）给这次检定加修正（规则书依据见
+    # docs/待办缺口.md 复核节）。easy / RED 两分支共用；一个玩家只有一张卡。
+    cyber_note = ""
+    cc = easy_roster.get(CONN, group_id, user_id)
+    if cc is None:
+        cc = roster.get(CONN, group_id, user_id)
+    if cc is not None:
+        cb, c_notes = cyber_bonus.check_bonus(cc, skill=(skill or "").strip())
+        if cb:
+            mods = mods + (cb,)
+            cyber_note = "（义体：" + "+".join(c_notes) + "）"
+
     easy_card = easy_roster.get(CONN, group_id, user_id)
     if easy_card is not None:
         name, level = easy.resolve_skill(skill, easy_card.get("skills", {}))
@@ -437,7 +466,7 @@ def check(
         head = f"{'✅' if ok else '❌'} {easy_card['name']} 的「{name}」检定"
         detail = f"1d10={natural} + {stat} {stat_value} + 技能 {level} = {total} vs DV{dv}"
         hp = easy_card.get("hp", "?")
-        return f"{head}\n{detail}\n生命 {hp} / 重伤 {easy_card.get('wound', '?')}"
+        return f"{head}\n{detail}\n生命 {hp} / 重伤 {easy_card.get('wound', '?')}" + helper_note + cyber_note
 
     card = roster.get(CONN, group_id, user_id)
     if card is None:
@@ -465,7 +494,7 @@ def check(
         tail = "（大成功：再掷一次加值）"
     else:
         tail = ""
-    return f"{'✅' if result.success else '❌'} {hero.name} 的「{skill}」检定\n{result.describe()}{tail}"
+    return f"{'✅' if result.success else '❌'} {hero.name} 的「{skill}」检定\n{result.describe()}{tail}" + helper_note + cyber_note
 
 
 def parse_check_arg(raw: str) -> tuple[str, int, tuple[int, ...]]:

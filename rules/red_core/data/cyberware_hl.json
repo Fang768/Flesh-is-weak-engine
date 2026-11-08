@@ -1,0 +1,417 @@
+{
+ "_meta": {
+  "source": "rules/red_core/raw/full.txt:9838-10320（书内页 112-115 赛博组件表）",
+  "note": "hl = 角色生成时预设的人性损失；hl_dice = 生成之后安装时改投的骰子（书内页 112「人性点数损失由预设数字后括号中的骰子决定」）。line 是 HL 在 full.txt 的行号。",
+  "rule": "full.txt:9834-9835"
+ },
+ "items": {
+  "生物监测器": {
+   "section": "时尚装置",
+   "facility": "购物中心",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 100,
+   "line": 9850
+  },
+  "化学皮肤": {
+   "section": "时尚装置",
+   "facility": "购物中心",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 100,
+   "line": 9856
+  },
+  "EMP 线纹": {
+   "section": "时尚装置",
+   "facility": "购物中心",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 10,
+   "line": 9861
+  },
+  "荧光纹身": {
+   "section": "时尚装置",
+   "facility": "购物中心",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 100,
+   "line": 9868
+  },
+  "虹移膜": {
+   "section": "时尚装置",
+   "facility": "购物中心",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 100,
+   "line": 9873
+  },
+  "皮下手表": {
+   "section": "时尚装置",
+   "facility": "购物中心",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 100,
+   "line": 9878
+  },
+  "科技炫发": {
+   "section": "时尚装置",
+   "facility": "购物中心",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 100,
+   "line": 9884
+  },
+  "神经链路": {
+   "section": "神经组件",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 500,
+   "line": 9912
+  },
+  "脑舞录制器": {
+   "section": "神经组件",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 500,
+   "line": 9918
+  },
+  "芯片插槽": {
+   "section": "神经组件",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 500,
+   "line": 9924
+  },
+  "交互接口": {
+   "section": "神经组件",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 500,
+   "line": 9930
+  },
+  "桑德维斯坦": {
+   "section": "神经组件",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 500,
+   "line": 9943
+  },
+  "赛博义眼": {
+   "section": "赛博光学组件",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 100,
+   "line": 9999
+  },
+  "防眩晕": {
+   "section": "赛博光学组件",
+   "facility": "购物中心",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10005
+  },
+  "字幕功能": {
+   "section": "赛博光学组件",
+   "facility": "购物中心",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10012
+  },
+  "虹移功能": {
+   "section": "赛博光学组件",
+   "facility": "购物中心",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10019
+  },
+  "射镖枪": {
+   "section": "赛博光学组件",
+   "facility": "诊所",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 500,
+   "line": 10026
+  },
+  "图像增强": {
+   "section": "赛博光学组件",
+   "facility": "购物中心",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 500,
+   "line": 10033
+  },
+  "紫外": {
+   "section": "赛博光学组件",
+   "facility": "购物中心",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 500,
+   "line": 10059
+  },
+  "显微目镜": {
+   "section": "赛博光学组件",
+   "facility": "诊所",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10065
+  },
+  "微型摄像": {
+   "section": "赛博光学组件",
+   "facility": "诊所",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 500,
+   "line": 10073
+  },
+  "辐射监测器": {
+   "section": "赛博光学组件",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 1000,
+   "line": 10080
+  },
+  "瞄准目镜": {
+   "section": "赛博光学组件",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 500,
+   "line": 10086
+  },
+  "远视目镜": {
+   "section": "赛博光学组件",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 500,
+   "line": 10093
+  },
+  "虚拟现实投影": {
+   "section": "赛博光学组件",
+   "facility": "购物中心",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10099
+  },
+  "赛博音频套装": {
+   "section": "音频赛博组件",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 500,
+   "line": 10114
+  },
+  "听觉放大": {
+   "section": "音频赛博组件",
+   "facility": "购物中心",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 100,
+   "line": 10120
+  },
+  "录音机": {
+   "section": "音频赛博组件",
+   "facility": "诊所",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10126
+  },
+  "窃听监测器": {
+   "section": "音频赛博组件",
+   "facility": "购物中心",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10133
+  },
+  "追踪器": {
+   "section": "音频赛博组件",
+   "facility": "诊所",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10140
+  },
+  "内置代理": {
+   "section": "音频赛博组件",
+   "facility": "购物中心",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 100,
+   "line": 10148
+  },
+  "水平阻尼降噪": {
+   "section": "音频赛博组件",
+   "facility": "购物中心",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10154
+  },
+  "无线电通讯": {
+   "section": "音频赛博组件",
+   "facility": "购物中心",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10161
+  },
+  "音乐播放器": {
+   "section": "音频赛博组件",
+   "facility": "诊所",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 50,
+   "line": 10170
+  },
+  "雷达监测器": {
+   "section": "音频赛博组件",
+   "facility": "诊所",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 500,
+   "line": 10177
+  },
+  "扰码器/解码器": {
+   "section": "音频赛博组件",
+   "facility": "购物中心",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10184
+  },
+  "语气分析": {
+   "section": "音频赛博组件",
+   "facility": "购物中心",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 100,
+   "line": 10191
+  },
+  "混音器": {
+   "section": "体内赛博组件",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 500,
+   "line": 10214
+  },
+  "避孕植入": {
+   "section": "体内赛博组件",
+   "facility": "购物中心",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 10,
+   "line": 10219
+  },
+  "抗体增强": {
+   "section": "体内赛博组件",
+   "facility": "购物中心",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 500,
+   "line": 10225
+  },
+  "赛博大蛇": {
+   "section": "体内赛博组件",
+   "facility": "医院",
+   "hl": 14,
+   "hl_dice": "4d6",
+   "cost": 1000,
+   "line": 10232
+  },
+  "鳃": {
+   "section": "体内赛博组件",
+   "facility": "医院",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 1000,
+   "line": 10236
+  },
+  "骨肉织绕": {
+   "section": "体内赛博组件",
+   "facility": "医院",
+   "hl": 14,
+   "hl_dice": "4d6",
+   "cost": 1000,
+   "line": 10243
+  },
+  "性植入": {
+   "section": "体内赛博组件",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 100,
+   "line": 10254
+  },
+  "鼻滤器": {
+   "section": "体内赛博组件",
+   "facility": "诊所",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10265
+  },
+  "毒物中和植入": {
+   "section": "体内赛博组件",
+   "facility": "诊所",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10275
+  },
+  "吸血鬼尖牙": {
+   "section": "体内赛博组件",
+   "facility": "诊所",
+   "hl": 14,
+   "hl_dice": "4d6",
+   "cost": 500,
+   "line": 10283
+  },
+  "隐藏枪套": {
+   "section": "外周赛博组件",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 500,
+   "line": 10297
+  },
+  "编织皮肤": {
+   "section": "外周赛博组件",
+   "facility": "医院",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 500,
+   "line": 10304
+  },
+  "皮下护甲": {
+   "section": "外周赛博组件",
+   "facility": "医院",
+   "hl": 14,
+   "hl_dice": "4d6",
+   "cost": 1000,
+   "line": 10311
+  },
+  "皮下口袋": {
+   "section": "外周赛博组件",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 100,
+   "line": 10315
+  }
+ }
+}

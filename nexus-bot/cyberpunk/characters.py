@@ -18,13 +18,17 @@ from typing import Iterable
 from .checks import CheckResult, DV, resolve_check
 from .damage import Armor, DamageResult, DamageType
 from .dice import Roller
-from .stats import STAT_ORDER, DerivedStats, derived, validate_stats
+from .stats import STAT_MAX, STAT_MIN, STAT_ORDER, DerivedStats, derived, validate_stats
 
 # 少数会直接改技能/属性的天赋。技能名与术语表一致。
 PERK_SKILL_BONUS: dict[str, dict[str, int]] = {
     # 每级 +1 说服 / 表演 / 服饰&风格
     "beautiful": {"说服": 1, "表演": 1, "服饰&风格": 1},
 }
+
+
+def _clamp(value: int) -> int:
+    return max(STAT_MIN, min(STAT_MAX, value))
 
 
 class WoundStateError(RuntimeError):
@@ -46,6 +50,10 @@ class Character:
     hp: int | None = None
     hum: int | None = None
     death_penalty: int = 0  # 死亡豁免累积惩罚
+    #: 义体给的永久属性加成（``属性键 → 加值``，如 骨肉织绕 ``{"BODY": 2}``）。
+    #: 运行时生效（``effective_stat`` / ``max_hp`` / ``death_save`` 会叠加上去），
+    #: **不写死** ``self.stats``，避免越过 ``validate_stats`` 的 2–10 范围。
+    cyber_mod: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         validate_stats(self.stats)
@@ -59,18 +67,31 @@ class Character:
 
     @property
     def derived(self) -> DerivedStats:
-        return derived(self.stats)
+        return derived(self.effective_stats)
+
+    @property
+    def effective_stats(self) -> dict[str, int]:
+        """基础属性 + 专长 + 义体修正，统一 clamp 到 2–10。
+
+        返回新字典，不改 ``self.stats`` —— 义体永久加成是运行时生效，
+        不污染存档里的基础属性（``validate_stats`` 只校验基础值）。
+        """
+        out = dict(self.stats)
+        for key, val in self.cyber_mod.items():
+            out[key] = _clamp(out.get(key, 5) + val)
+        return out
 
     @property
     def max_hp(self) -> int:
-        return self.derived.hp
+        return derived(self.effective_stats).hp
 
     def effective_stat(self, key: str) -> int:
-        """属性 + 专长修正（街头门路加到 COOL 上）。"""
+        """属性 + 专长修正（街头门路加到 COOL 上）+ 义体永久加成。"""
         base = self.stats[key]
         if key == "COOL":
             base += self.perks.get("streetdeal", 0)
-        return base
+        base += self.cyber_mod.get(key, 0)
+        return _clamp(base)
 
     def effective_skill(self, skill: str) -> int:
         """技能 + 专长/天赋修正。"""
@@ -177,7 +198,7 @@ class Character:
         ``easy`` 是临时加成（例如「擅长硬抗」类专长），会加在有效体格上。
         """
         roll = roller.roll(10)
-        effective = self.stats["BODY"] + easy - self.death_penalty
+        effective = self.effective_stat("BODY") + easy - self.death_penalty
         self.death_penalty += 1
         if roll == 10:
             return False, roll
@@ -192,7 +213,7 @@ class Character:
 
     def rest(self) -> None:
         """稳定伤势后休息一整天：恢复等于体格的 HP（书 p222）。"""
-        self.heal(self.stats["BODY"])
+        self.heal(self.effective_stat("BODY"))
 
     @property
     def humanity(self) -> int:

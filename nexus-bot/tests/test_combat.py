@@ -110,6 +110,86 @@ def test_aimed_head_doubles_damage(conn):
     assert _enemy(conn).hp == 16
 
 
+# ── 义体命中修正（B 批：瞄准/远视目镜）────────────────────────
+
+
+def test_cyber_target_scope_boosts_aimed_hit(conn):
+    """装「瞄准目镜」的远程角色，瞄准射击命中 +1（full.txt:28330-28331）。"""
+    from core import roster as _roster
+
+    card = _card(conn, skill_overrides={"手枪": 6})
+    card["state"] = {"cyber": ["瞄准目镜"]}
+    _roster.save(conn, GID, "1001", card)
+    C.start(conn, GID, enemies=(("打手", 1),), roller=dice.ScriptedRoller([9, 2]))
+    C.close_range(conn, GID, "1001", "距离 8 米")
+    text = C.attack(conn, GID, "1001", "打手", skill="手枪", aim="头",
+                    roller=dice.ScriptedRoller([10, 3, 3, 3]))
+    assert "瞄准目镜+1" in text, text
+
+
+def test_cyber_target_scope_far_shot(conn):
+    """装「远视目镜」时，目标 ≥51 米才给命中 +1（full.txt:28339）。"""
+    from core import roster as _roster
+
+    card = _card(conn, skill_overrides={"手枪": 6})
+    card["state"] = {"cyber": ["远视目镜"]}
+    _roster.save(conn, GID, "1001", card)
+    C.start(conn, GID, enemies=(("打手", 1),), roller=dice.ScriptedRoller([9, 2]))
+    C.close_range(conn, GID, "1001", "距离 60 米")
+    text = C.attack(conn, GID, "1001", "打手", skill="手枪",
+                    roller=dice.ScriptedRoller([10, 3, 3, 3]))
+    assert "远视目镜+1" in text, text
+
+
+def test_cyber_target_scope_not_at_close(conn):
+    """装「远视目镜」但目标只有 8 米 → 命中不加。"""
+    from core import roster as _roster
+
+    card = _card(conn, skill_overrides={"手枪": 6})
+    card["state"] = {"cyber": ["远视目镜"]}
+    _roster.save(conn, GID, "1001", card)
+    C.start(conn, GID, enemies=(("打手", 1),), roller=dice.ScriptedRoller([9, 2]))
+    C.close_range(conn, GID, "1001", "距离 8 米")
+    text = C.attack(conn, GID, "1001", "打手", skill="手枪",
+                    roller=dice.ScriptedRoller([10, 3, 3, 3]))
+    assert "远视目镜+1" not in text, text
+
+
+# ── 义体护甲 SP（C-2：编织皮肤 SP7 / 皮下护甲 SP11）──────────
+
+
+def test_cyber_subdermal_armor_raises_effective_sp(conn):
+    """装「皮下护甲」后，PC 战斗护甲从穿着/DEFAULT 抬到 SP11 且不叠加。"""
+    from core import roster as _roster
+
+    card = _card(conn)
+    # 独狼默认穿着护甲远低于 SP11
+    assert _pc_default_sp(card) < 11
+    card["state"] = {"cyber": ["皮下护甲"]}
+    _roster.save(conn, GID, "1001", card)
+    C.start(conn, GID, enemies=(("打手", 1),), roller=dice.ScriptedRoller([9, 2]))
+    pc = _pc(conn)
+    assert pc.sp == 11, f"皮下护甲应把 SP 抬到 11，实际 {pc.sp}"
+
+
+def test_cyber_woven_skin_sp7(conn):
+    """装「编织皮肤」→ 战斗 SP 抬到 7（低于皮下护甲 11，不叠加取高）。"""
+    from core import roster as _roster
+
+    card = _card(conn)
+    card["state"] = {"cyber": ["编织皮肤"]}
+    _roster.save(conn, GID, "1001", card)
+    C.start(conn, GID, enemies=(("打手", 1),), roller=dice.ScriptedRoller([9, 2]))
+    assert _pc(conn).sp == 7, _pc(conn).sp
+
+
+def _pc_default_sp(card) -> int:
+    # 未装护甲义体时，sp = 穿着护甲 or DEFAULT_SP（combat.start 的原始口径）
+    from core import roster as _roster
+    rules = _roster.to_character(card)
+    return rules.armor.sp or 4
+
+
 # ── 动作经济（书内页 168）────────────────────────────────────
 
 
@@ -155,6 +235,18 @@ def test_non_action_text_is_ignored(conn):
     assert C.act(conn, GID, "1001", "我看看周围") is None
 
 
+def test_delay_action_ends_turn_and_is_honest(conn):
+    """延迟动作（full.txt:14430-14433）：至少结束回合，并诚实说明引擎没有
+    事件调度、无法在指定时刻自动触发。"""
+    _card(conn)
+    C.start(conn, GID, enemies=(("打手", 1),), roller=dice.ScriptedRoller([9, 2]))
+    text = C.act(conn, GID, "1001", "延迟", roller=dice.ScriptedRoller([3]))
+    assert "结束回合" in text
+    # 诚实提示：书里要「指定触发事件+预告动作和目标」，本引擎没事件调度
+    assert "要指定触发事件" in text and "事件调度" in text
+    assert C.load(conn, GID).round == 2  # 动作已花、回合推进
+
+
 # ── 结束与持久化 ──────────────────────────────────────────────
 
 
@@ -178,6 +270,53 @@ def test_hp_is_written_back_to_card_state(conn):
     C.attack(conn, GID, "1001", "打手", skill="手枪",
              roller=dice.ScriptedRoller([1, 6, 5, 5]))
     assert roster.get(conn, GID, "1001")["state"]["hp"] == 34
+
+
+def test_rest_night_heals_body_points(conn):
+    """「过夜」自然恢复体格点 HP（不带抗体增强=×1）。"""
+    from core import roster as _roster
+
+    card = _card(conn)
+    rules = _roster.to_character(card)
+    card["state"] = {"hp": 1, "max_hp": rules.max_hp}
+    _roster.save(conn, GID, "1001", card)
+    C.rest_night(conn, GID)
+    got = roster.get(conn, GID, "1001")["state"]["hp"]
+    assert got == 1 + rules.effective_stat("BODY"), got
+
+
+def test_rest_night_antibody_heals_double_and_clamps(conn):
+    """装「抗体增强」→ 过夜恢复体格×2，且不越 max_hp。"""
+    from core import roster as _roster
+
+    card = _card(conn)
+    rules = _roster.to_character(card)
+    card["state"] = {"cyber": ["抗体增强"], "hp": 1, "max_hp": rules.max_hp}
+    _roster.save(conn, GID, "1001", card)
+    C.rest_night(conn, GID)
+    got = roster.get(conn, GID, "1001")["state"]["hp"]
+    assert got == 1 + rules.effective_stat("BODY") * 2, got
+    assert got <= rules.max_hp
+
+    # 从接近满血开始，恢复量被 clamp 到 max_hp（不过量）
+    card = roster.get(conn, GID, "1001")
+    card["state"]["hp"] = rules.max_hp - 1
+    _roster.save(conn, GID, "1001", card)
+    C.rest_night(conn, GID)
+    assert roster.get(conn, GID, "1001")["state"]["hp"] == rules.max_hp
+
+
+def test_rest_night_skips_mortal(conn):
+    """致命伤（HP≤0，还没稳定）不能自愈——过夜跳过。"""
+    from core import roster as _roster
+
+    card = _card(conn)
+    rules = _roster.to_character(card)
+    card["state"] = {"cyber": ["抗体增强"], "hp": 0, "max_hp": rules.max_hp}
+    _roster.save(conn, GID, "1001", card)
+    text = C.rest_night(conn, GID)
+    assert "没有可以自愈的人" in text, text
+    assert roster.get(conn, GID, "1001")["state"]["hp"] == 0
 
 
 def test_status_text_lists_queue(conn):

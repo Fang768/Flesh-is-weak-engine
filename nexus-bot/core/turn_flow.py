@@ -16,6 +16,7 @@ import re
 from core import (
     clues,
     combat,
+    cyber_flow,
     easy_roster,
     events,
     growth,
@@ -29,7 +30,7 @@ from core import (
 )
 from core.runtime import CONN, GATE
 from core.session import Mode
-from cyberpunk import dice
+from cyberpunk import cyber_bonus, dice
 
 
 def _card_of(group_id: str, user_id: str) -> tuple[dict | None, bool]:
@@ -37,6 +38,113 @@ def _card_of(group_id: str, user_id: str) -> tuple[dict | None, bool]:
     if card is not None:
         return card, True
     return roster.get(CONN, group_id, user_id), False
+
+
+#: 补充技能判定（full.txt:11811-11817）：「一次补充技能判定的好结果（甚至可以由
+#: 另一个角色掷出）可以给后续相关的技能判定 +1 的加值，只要这两个技能具有互补
+#: 性。此加值仅影响一次技能判定，且不叠加。」
+#: 内存态：`(group_id, 被协助者的 qq) -> {"bonus":1, "skill":..., "source":名}`，
+#: 只活一个进程、重启即丢——本就是「下一检定立即用完」的临时值，可接受。
+HELPER_BONUS: dict[tuple[str, str], dict] = {}
+
+#: 「我帮一把」的口语（补充技能判定）
+HELPER_HINTS = ("协助", "帮助", "帮一把", "支援", "帮我打辅助")
+_HELPER_RE = re.compile(
+    r"^(?:协助|帮助|帮一把|支援)\s*[:：]?\s*(\S+?)\s*(?:检定|检查)?\s*([一-龥A-Za-z]+)$"
+)
+
+
+def _donee_qq(group_id: str, name: str) -> str | None:
+    """在群成员卡里按卡名找队友的 qq；找不到返回 None。"""
+    hit = None
+    for m in party.members(CONN, group_id):
+        if m.name and m.name.strip() == name.strip():
+            hit = m.qq
+            break
+    if hit is None:
+        # 全名里包含（去掉「·」等花名后缀）
+        for m in party.members(CONN, group_id):
+            if m.name and (m.name == name or name in m.name or m.name in name):
+                hit = m.qq
+                break
+    return hit
+
+
+def looks_like_helper(text: str) -> bool:
+    head = (text or "").strip()
+    return bool(_HELPER_RE.match(head)) or any(
+        head.startswith(t) for t in HELPER_HINTS
+    )
+
+
+def helper_text(
+    group_id: str,
+    user_id: str,
+    text: str,
+    *,
+    roller=None,
+) -> str | None:
+    """补充技能判定（full.txt:11811-11817）：辅助者先打一次互补技能检定，
+    成功就给被协助者的下一次技能检定挂 +1（仅一次、不叠加）。
+
+    返回 None 表示这句不像「协助」，交给后面继续处理。
+    """
+    m = _HELPER_RE.match((text or "").strip())
+    if m is None:
+        # 只有句首就像要协助（但没说清队友/技能）才给提示；
+        # 中段提到「支援/帮助」之类的戏内台词不算，免得误伤正常行动。
+        head = (text or "").strip()
+        if any(head.startswith(t) for t in HELPER_HINTS):
+            return "用法：协助 <队友名> <技能>（书内页 130 补充技能判定，成功给队友的下一次检定 +1，full.txt:11811-11817）。"
+        return None
+    donee_name, skill = m.group(1), m.group(2)
+
+    card, is_easy = _card_of(group_id, user_id)
+    if card is None:
+        return "你还没有角色卡。先「给我一个角色」或「认领 火炬」，再帮人。"
+    source_name = str(card.get("name") or "你")
+
+    donee_qq = _donee_qq(group_id, donee_name)
+    if donee_qq is None or donee_qq == user_id:
+        names = "，".join(m.name for m in party.members(CONN, group_id))
+        return (f"群里没找到叫「{donee_name}」的队友（在场成员：{names or '没有人'}）。"
+                f"要协助的话对队友说：协助 <队友名> <技能>。")
+
+    # 已有加值未用：不叠加（书内页 130「且不叠加」）
+    if HELPER_BONUS.get((group_id, donee_qq)):
+        return (f"《{source_name}》想帮「{donee_name}」，但 {donee_name} 已经挂着本次 "
+                f"+1 未用（补充技能判定不叠加，full.txt:11811-11817）。")
+
+    # 辅助者自己打一次技能检定（easy 也走 card_flow.check 的统一入口）
+    from core.card_flow import check
+    reply = check(group_id, user_id, skill, roller=roller or dice.RandomRoller())
+    ok = reply.lstrip().startswith("✅")
+    if not ok:
+        return ("《" + source_name + "》的补充检定没成：\n" + reply
+                + "\n\n有互补技能才给队友 +1（full.txt:11811-11817），这次不加。")
+
+    HELPER_BONUS[(group_id, donee_qq)] = {
+        "bonus": 1,
+        "skill": skill,
+        "source": source_name,
+    }
+    return "🤝 《" + source_name + "》 的补充检定成功（full.txt:11811-11817）：\n" + reply + f"\n\n已给「{donee_name}」的下一次技能检定挂 +1（仅一次、不叠加）。"
+
+
+def pop_helper_bonus(group_id: str, donee_qq: str) -> dict | None:
+    """取出被协助者挂着的补充技能 +1（读走即删，仅一次）。
+
+    返回 dict 或 None：None 表示没挂加值。供被协助者下一次检定前消费。
+    """
+    key = (str(group_id), str(donee_qq))
+    item = HELPER_BONUS.pop(key, None)
+    if item:
+        return {"bonus": int(item.get("bonus") or 1),
+                "skill": str(item.get("skill") or ""),
+                "source": str(item.get("source") or "队友")}
+    return None
+
+
 
 
 #: 没有地图数据时让 DM 按场景估距离（不进判定，只补 range_m）
@@ -467,7 +575,29 @@ async def handle(
         return _begin_favor(group_id, user_id, card, is_easy, campaign,
                             story_id, scene_id, scene, text)
 
+    # ⓪ⓓ 多人协作检定（补充技能判定 full.txt:11811-11817）：
+    #     「协助 <队友名> <技能>」→ 辅助者先打一次互补技能检定，成功给队友的下一次检定挂 +1
+    #     （仅一次、不叠加）。这是戏内多人交互，优先于普通行动与战斗动作。
+    if not text.startswith("/"):
+        helper_reply = helper_text(group_id, user_id, text, roller=roller or dice.RandomRoller())
+        if helper_reply is not None:
+            events.record(
+                CONN,
+                group_id=group_id,
+                kind="note",
+                campaign_id=campaign.id,
+                summary=f"协作协助：{text[:16]}",
+                actor=user_id,
+            )
+            return helper_reply
+
     # ⓪ 休整 / 拾取装备：不进模型，直接结算
+    # 「过夜/短休」= 自然恢复部分 HP（装抗体增强则体格×2/日）；「休整」= 接受医理全回复
+    if re.match(r"^(?:过夜|短休|休息一晚|歇一晚)\s*(?:一下)?$", text):
+        try:
+            return combat.rest_night(CONN, group_id)
+        except combat.CombatError as exc:
+            return str(exc)
     if re.match(r"^(?:休整|治疗|包扎|休息)\s*(?:一下)?$", text):
         try:
             return combat.rest(CONN, group_id)
@@ -490,6 +620,21 @@ async def handle(
             actor=user_id,
         )
         return f"🎒 已装备「{item}」，下一场战斗生效。"
+
+    # ⓪a 赛博组件安装：投人性损失（HL），不交给模型编
+    #    书内页 112（rules/red_core/raw/full.txt:9834-9835）：「在角色生成以后，
+    #    人性点数损失由预设数字后括号中的骰子决定。」
+    if cyber_flow.looks_like_install(text):
+        reply = cyber_flow.install(CONN, group_id, user_id, text, roller=roller)
+        events.record(
+            CONN,
+            group_id=group_id,
+            kind="note",
+            campaign_id=campaign.id,
+            summary=f"赛博组件：{text[:16]}",
+            actor=user_id,
+        )
+        return reply
 
     # ⓪b 非战斗移动：场景有地图时按 MOVE×2 米走，不交给模型编位置
     moved = combat.scene_move(CONN, group_id, user_id, text)
@@ -629,6 +774,7 @@ async def handle(
                 skill=skill,
                 autofire=autofire,
                 weapon=combat.autofire_weapon_from_text(text) if autofire else None,
+                shots=combat.shots_from_text(text) if not autofire else None,
                 roller=roller,
             )
         except combat.CombatError as exc:
@@ -729,6 +875,27 @@ async def handle(
                 mods = (value,)
             mod_note = combat.modifier_text(fight, me)
 
+    # 多人协作检定：若这位玩家身上挂着队友的补充技能 +1（full.txt:11811-11817），
+    # 这次普通行动就消费掉（仅一次、不叠加）。读走即删。
+    helper = pop_helper_bonus(group_id, user_id)
+    if helper is not None:
+        mods = mods + (int(helper["bonus"]),)
+        helper_note = ("（补充技能：" + str(helper["source"]) + " 协助，"
+                       + str(helper["skill"] or "相关技能") + " +1，full.txt:11811）")
+    else:
+        helper_note = ""
+
+    # 义体加成：已装的赛博组件（RED 义体）给这次检定加修正（规则书 full.txt 见
+    # docs/待办缺口.md 复核节）。与战斗环境修正、协作 bonus 可叠加（不同来源）。
+    cyber_note = ""
+    if card is not None:
+        cb, c_notes = cyber_bonus.check_bonus(
+            card, skill=(proposal.skill or "").strip()
+        )
+        if cb:
+            mods = mods + (cb,)
+            cyber_note = "（义体：" + "+".join(c_notes) + "）"
+
     outcome = turn.decide(
         proposal,
         card=card,
@@ -782,6 +949,10 @@ async def handle(
         lines.append(outcome.note)
     if mod_note:
         lines.append(mod_note)
+    if helper_note:
+        lines.append(helper_note)
+    if cyber_note:
+        lines.append(cyber_note)
 
     if moved:
         target = story.scene(story_id, outcome.scene_to) or {}

@@ -15,7 +15,12 @@
 * 装填 = 一个其他动作，**完全重新装填**（补满整个弹匣），不能混装弹种（书内页 174 / :14543-14545）。
   单发攻击扣 1 发、全自动扣 10 发，命中与否都扣；弓/十字弩永不装填也不耗弹（:14898-14899）。
 
-没有建模的：延迟动作的具体时机、中毒与疾病的细化流程、爆炸对地形的破坏。
+没有建模的：**延迟动作的事件调度**（书内页 170 = `full.txt:14430-14433` 要求「指定一个
+触发事件 + 预设动作和目标」，本引擎没有事件调度器，玩家说「延迟」只等于结束回合，
+并诚实提示这一限制）、**地形被炸毁后的状态**（`full.txt:15067` 只说爆炸伤及地形，没给
+破坏后的地形规则；掩体耐久是另一条、已实现）。
+
+中毒不在这里：它走 `core/hazards.py` 的 `poison()`（折磨与药物抵抗 DV，直接 HP 伤害）。
 """
 
 from __future__ import annotations
@@ -28,7 +33,7 @@ from pathlib import Path
 import sqlite3
 from dataclasses import dataclass, field
 
-from cyberpunk import dice, easy
+from cyberpunk import cyber_bonus, dice, easy
 from cyberpunk.crit import SERIOUS_EXTRA_DAMAGE, SERIOUS_TRIGGER_SIXES
 from cyberpunk.damage import roll_dice_full as _roll_dice_full
 from core import easy_roster, roster
@@ -131,6 +136,60 @@ WEAPON_DAMAGE = {
 }
 MELEE_SKILLS = {"近战武器", "武术", "搏击"}
 
+# ── 弹种（full.txt:26688-26900） ──────────────────────────────
+#
+# 书里「装填 = 用一种子弹种类完全重新装填武器」，且「你不能在一个弹匣里混合
+# 多种子弹种类」（:14731-14732）→ 弹种跟着**弹匣**走，所以记在战斗者身上。
+#
+# 这一轮只把「穿甲弹」的战斗效果接进结算，其余弹种按原文落库、只做提示：
+#   · 穿甲弹（:26726-26731）：护甲被穿透时 **SP 减值 1 → 2**（不是护甲减半）
+#   · 橡胶弹（:26816-26823）：不造成严重伤势、不削减护甲、HP 不会被打到 1 以下
+#   · 其余（生物毒素/EMP/膨胀/闪光/燃烧/毒气/麻醉/智能/烟雾/催泪）多为
+#     「攻击不造成伤害，改成过一次 DV 检定」，还没有通用的「检定效果」通道，
+#     先只记录弹种、在战斗里给出提示（「约定」，见 docs/进度.md）。
+AMMO_BASE = "基础弹药"
+AMMO_AP = "穿甲弹"
+AMMO_RUBBER = "橡胶弹"
+
+#: 弹种 → 额外说明（不知道的弹种按基础弹药算）
+AMMO_TYPES = {
+    AMMO_BASE: "标准弹药，没有特殊效果。",
+    AMMO_AP: "穿透护甲时 SP 减值从 1 增加到 2（full.txt:26730-26731）。",
+    "生物毒素弹": "仅箭矢与榴弹；攻击不造成伤害，改过 DV15 折磨&药物耐受，失败 3d6 直接伤害。",
+    "EMP 弹": "仅榴弹；不过伤害，改过 DV15 赛博技术，失败 2 件赛博组件失效 1 分钟。",
+    "膨胀弹": "仅箭矢/子弹/独头弹；头部与体内异物伤势重投 1d10，且不再吃那 5 点额外伤害。",
+    "闪光弹": "仅榴弹；不过伤害，改过 DV15 折磨&药物耐受，失败吃眼部受损+耳朵受损。",
+    "燃烧弹": "穿透护甲就点燃；每回合结束 2 点直接 HP，不可叠加。",
+    "毒气弹": "仅箭矢与榴弹；不过伤害，改过 DV13 折磨&药物耐受，失败 2d6。",
+    AMMO_RUBBER: "不造成严重伤势、不削减护甲；HP 不会被打到 1 以下。",
+    "麻醉弹": "仅箭矢与榴弹；不过伤害，改过 DV13，失败昏倒 1 分钟。",
+    "智能弹药": "需要赛博组件「瞄准目镜」，没装就不开火；单发打偏 ≤4 时用 1d10+10 再投一次。",
+    "烟雾弹": "仅榴弹；10×10 米烟雾 1 分钟，被烟雾遮挡 −4。",
+    "催泪弹": "仅榴弹；不过伤害，改过 DV13，失败吃眼部受损。",
+}
+
+#: 「约定」：这些弹种书里写「攻击不造成任何伤害，改成过一次 DV 检定」。
+#: 本引擎没有通用的「命中后检定」通道 → 先不结算，只把提示给到玩家。
+AMMO_CHECK_ONLY = {
+    "生物毒素弹", "EMP 弹", "闪光弹", "毒气弹", "麻醉弹", "催泪弹",
+}
+
+#: 书里逐条写了「可用弹药类型」，这里只记类别限制（不逐枪存）
+AMMO_ALLOWED_HINT = {
+    AMMO_AP: "霰弹除外",
+    "生物毒素弹": "仅箭矢与榴弹",
+    "EMP 弹": "仅榴弹",
+    "膨胀弹": "仅箭矢/子弹/独头弹",
+    "闪光弹": "仅榴弹",
+    "燃烧弹": "仅箭矢/子弹/榴弹/霰弹",
+    "毒气弹": "仅箭矢与榴弹",
+    AMMO_RUBBER: "仅箭矢/子弹/独头弹",
+    "麻醉弹": "仅箭矢与榴弹",
+    "智能弹药": "仅箭矢/子弹/火箭弹",
+    "烟雾弹": "仅榴弹",
+    "催泪弹": "仅榴弹",
+}
+
 #: 全自动射击一次要打出去的子弹（full.txt:14802「一个动作 + 10 发子弹」）
 AUTOFIRE_ROUNDS = 10
 
@@ -172,6 +231,59 @@ def _out_of_ammo(me: "Combatant", weapon: str | None) -> str | None:
         return None
     return (f"{me.name} 的{weapon or '武器'}没子弹了（0 发）。"
             "先花一个其他动作装填（full.txt:14543-14545）。")
+
+
+def _has_cyberarm(me: "Combatant") -> bool:
+    """有没有赛博臂/义肢（让体格低于 10 的人也能砸钢制掩体，书内页 183）。"""
+    parts = " ".join(me.tags)
+    return "赛博臂" in parts or "义肢" in parts
+
+
+def _armor_step(me: "Combatant", target: "Combatant", *, melee: bool) -> int:
+    """这一击把目标护甲磨掉几点。
+
+    默认 1 点。**穿甲弹**把「护甲被穿透时 SP 减值从 1 增加为 2」
+    （full.txt:26726-26731）→ 远程 + 穿甲弹时返回 2。
+    """
+    if not melee and me.ammo_type == AMMO_AP:
+        return 2
+    return 1
+
+
+#: 射速（ROF）：一次攻击动作里这件武器能打几次（full.txt:14557「一次攻击动作中
+#: 该武器能射击的最大次数」）。
+#:
+#: 「约定」：书里是**逐枪**的表（中型手枪 ROF2、霰弹枪 ROF1、突击步枪 ROF1…），
+#: 本仓库按武器类别取一个代表值（见 weapons.json 的 `rof` 字段口径）。
+_ROF_DEFAULT = {"手枪": 2, "冲锋枪": 1, "霰弹枪": 1, "突击步枪": 1,
+                "狙击步枪": 1, "弓": 1, "榴弹发射器": 1, "火箭筒": 1,
+                "近战武器": 2, "武术": 2, "搏击": 2}
+
+#: 书里「无论你持有多少武器…都不能进行超过两次攻击判定」（full.txt:14676-14685）
+ROF_CAP = 2
+
+
+def _rof_of(weapon: str | None, *, melee: bool) -> int:
+    """这件武器一次攻击动作能打几次（1 或 2）。"""
+    name = weapon or ""
+    if melee:
+        # 近战表：轻型/中型/重型都是 2（full.txt:14985-15010）
+        return min(ROF_CAP, _ROF_DEFAULT.get(name, 2))
+    return min(ROF_CAP, max(1, _ROF_DEFAULT.get(name, 1)))
+
+
+def _ammo_note(me: "Combatant", *, melee: bool) -> str:
+    """开火前把特殊弹种的提示拼出来（空串 = 基础弹药，没什么可说）。"""
+    if melee:
+        return ""
+    kind = me.ammo_type or AMMO_BASE
+    if kind == AMMO_BASE:
+        return ""
+    text = AMMO_TYPES.get(kind)
+    if not text:
+        return ""
+    return f"（{kind}：{text}）"
+
 
 
 #: 全自动命中数上限（书内页 173）：冲锋枪 3、突击步枪 4。表在地图模块里维护
@@ -249,6 +361,10 @@ class Combatant:
     ammo: int = -1
     #: 弹匣容量；0 = 按武器类别的常见值推（_MAG_DEFAULT）
     mag: int = 0
+    #: 这一匣装的是什么弹（``AMMO_TYPES`` 的键，如「穿甲弹」）。
+    #: 书里「你不能在一个弹匣里混合多种子弹种类」（full.txt:14731-14732），
+    #: 所以弹种跟着弹匣走、记在人身上，装填时整匣换。
+    ammo_type: str = AMMO_BASE
     #: 开打时的落位提示（不落库；只有 start 用）
     spawn: tuple[int, int] | None = None
 
@@ -548,6 +664,7 @@ def load(conn, group_id: str) -> Combat | None:
                 c.crits = tuple(str(t) for t in crits)
             c.ammo = int(raw_stat.get("ammo", c.ammo))
             c.mag = int(raw_stat.get("mag", c.mag))
+            c.ammo_type = str(raw_stat.get("ammo_type") or c.ammo_type)
         if c.side == "pc":
             card = roster.get(conn, group_id, c.owner_qq) or easy_roster.get(
                 conn, group_id, c.owner_qq
@@ -569,6 +686,7 @@ def _stat_json(c: Combatant) -> str:
         "wound": c.wound, "range_m": c.range_m, "tags": list(c.tags),
         "mortal": c.mortal, "body": c.body, "death_save_penalty": c.death_save_penalty,
         "crits": list(c.crits), "ammo": c.ammo, "mag": c.mag,
+        "ammo_type": c.ammo_type,
     }, ensure_ascii=False)
 
 
@@ -717,6 +835,17 @@ def _shot_dv(combat: "Combat", me: "Combatant", target: "Combatant", *,
     return dv, ""
 
 
+def _target_meters(combat: "Combat", me: "Combatant",
+                   target: "Combatant") -> int | None:
+    """这次攻击目标离射手多少米；没有可靠距离返回 None（书内页 173 只按距离算 DV）。"""
+    game = _map_for(combat)
+    if game is not None and me.x >= 0 and me.y >= 0 and target.x >= 0 and target.y >= 0:
+        return game.meters((me.x, me.y), (target.x, target.y))
+    if target.range_m > 0:
+        return int(target.range_m)
+    return None
+
+
 def _range_dv(combat: "Combat", me: "Combatant", target: "Combatant", *,
               melee: bool, weapon: str | None,
               autofire: bool = False) -> tuple[int | None, str, str]:
@@ -860,12 +989,14 @@ def start(conn, group_id: str, *, campaign_id: int | None = None, scene: str = "
             side="pc",
             initiative=0,
             hp=max(0, hp),
+            # rules.max_hp / effective_stat 已含义体永久加成（骨肉织绕 BODY+2 等）
             max_hp=rules.max_hp,
-            sp=rules.armor.sp or DEFAULT_SP,
-            ref=int(stats.get("REF", 5)),
-            dex=int(stats.get("DEX", 5)),
+            # 护甲 SP：穿着护甲 与 义体护甲（编织皮肤/皮下护甲）取高——RED 不叠加
+            sp=max(rules.armor.sp or DEFAULT_SP, cyber_bonus.armor_sp(card)),
+            ref=rules.effective_stat("REF"),
+            dex=rules.effective_stat("DEX"),
             dodge=int(skills.get("闪避", 0)),
-            body=int(stats.get("BODY", 5)),
+            body=rules.effective_stat("BODY"),
             tags=_card_tags(card),
         ))
 
@@ -1131,6 +1262,42 @@ def rest(conn, group_id: str) -> str:
     if not healed:
         return "🩹 没有需要休整的人（或者大家都倒下了）。"
     return "🩹 休整完毕：" + "、".join(healed) + " 的 HP 已回满。"
+
+
+def rest_night(conn, group_id: str) -> str:
+    """过夜短休：按自然恢复回复一部分 HP（非「接受医理」的瞬时全回复）。
+
+    RED 自然痊愈：稳定伤势成功后，休息一整天恢复 **体格** 点 HP
+    （characters.py 条目 / full.txt 书 p222）。装「抗体增强」翻倍为 体格×2
+    （full.txt:10220-10223）。致命伤（HP≤0，还没稳定）不能自愈，跳过。
+    """
+    if active(conn, group_id) is not None:
+        raise CombatError("战斗还没结束，先打完再过夜。")
+    healed: list[str] = []
+    for card in roster.members(conn, group_id):
+        rules = roster.to_character(card)
+        state = dict(card.get("state") or {})
+        hp = state.get("hp")
+        if hp is None or int(hp) <= 0:
+            continue  # 致命伤未稳定，不能自愈
+        cur = int(hp)
+        amount = rules.effective_stat("BODY") * cyber_bonus.rest_multiplier(card)
+        new_hp = min(rules.max_hp, cur + amount)
+        if new_hp == cur:
+            continue
+        state["hp"] = new_hp
+        state["max_hp"] = rules.max_hp
+        conn.execute(
+            "UPDATE characters SET state = ?, updated_at = ?"
+            " WHERE group_id = ? AND owner_qq = ?",
+            (json.dumps(state, ensure_ascii=False), now(), group_id,
+             str(card.get("owner_qq", ""))),
+        )
+        healed.append(f"{card.get('name') or '无名'}+{new_hp - cur}")
+    conn.commit()
+    if not healed:
+        return "🌙 过夜后没有可以自愈的人（致命伤需要先稳定伤势或就医）。"
+    return "🌙 过了一夜（自然恢复）：" + "、".join(healed) + "。"
 
 
 # ── 文本 ──────────────────────────────────────────────────────
@@ -1986,7 +2153,8 @@ def _autofire(conn, combat: "Combat", me: "Combatant", target: "Combatant", card
     taken = max(0, raw - sp)
     was_mortal = target.mortal and target.hp >= 1
     if taken:
-        target.sp_wear += 1
+        # 全自动也是远程射击，穿甲弹同样 1 → 2（full.txt:26730-26731）
+        target.sp_wear += _armor_step(me, target, melee=False)
 
     _apply_damage_hp(combat, target, taken, lines)
     lines.append(f"命中：判定超出 {margin}，取 {hits} 发（{weapon}上限 "
@@ -2157,6 +2325,7 @@ def suppress(conn, group_id: str, actor_qq: str, *,
 def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
            skill: str | None = None, aim: str | None = None,
            autofire: bool = False, weapon: str | None = None,
+           shots: int | None = None,
            roller: dice.Roller | None = None) -> str:
     roller = roller or dice.RandomRoller()
     combat = load(conn, group_id)
@@ -2209,11 +2378,20 @@ def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
             if total < dv:
                 lines.append("没打中，子弹嵌进了旁边的墙。")
             else:
-                dmg = _roll_damage(roller, WEAPON_DAMAGE.get("手枪", "2D6"))
-                hp = max(0, _cover_hp(combat, cover) - dmg)
-                combat.covers[cover.id] = hp
-                lines.append(f"掩体掉了 {dmg} 点耐久，还剩 {hp}。"
-                             + ("掩体被打烂了。" if hp <= 0 else ""))
+                # 掩体材质：钢制掩体不能被体格低于 10 或没有赛博臂的角色的
+                # 武术/搏击攻击所损伤（full.txt:15462-15464，书内页 183）
+                cover_skill = skill or _best_weapon_skill(roster.get(conn, group_id, actor_qq))
+                if (cover.material == "钢"
+                        and cover_skill in ("武术", "搏击")
+                        and me.body < 10 and not _has_cyberarm(me)):
+                    lines.append(f"  {cover.name}是钢制的，武术/搏击伤不了它"
+                                 "（体格 ≥10 或要赛博臂，full.txt:15462-15464）。")
+                else:
+                    dmg = _roll_damage(roller, WEAPON_DAMAGE.get("手枪", "2D6"))
+                    hp = max(0, _cover_hp(combat, cover) - dmg)
+                    combat.covers[cover.id] = hp
+                    lines.append(f"掩体掉了 {dmg} 点耐久，还剩 {hp}。"
+                                 + ("掩体被打烂了。" if hp <= 0 else ""))
             _sync_pc_hp(conn, combat, me)
             _advance(conn, combat, roller, lines)
             _save(conn, combat)
@@ -2227,6 +2405,15 @@ def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
     melee = skill_name in MELEE_SKILLS
     aim_part = AIM_PARTS.get((aim or "").strip()) if aim else None
     penalty = AIM_PENALTY if aim_part else 0
+    # 义体命中修正（B 批）：瞄准/远视目镜按「是否瞄准 + 目标距离」给命中加值，
+    # 只对远程生效（近战不吃义眼改造）。combat_hit_note 用于回执说明。
+    cyber_hit = 0
+    cyber_hit_note = ""
+    if card is not None and not melee:
+        cyber_hit, c_notes = cyber_bonus.hit_bonus(
+            card, aiming=bool(aim_part), meters=_target_meters(combat, me, target))
+        if cyber_hit:
+            cyber_hit_note = "（义体命中：" + "+".join(c_notes) + "）"
 
     # 全自动射击走独立结算（不同技能、不同 DV 表、伤害乘算），见 _autofire
     if autofire:
@@ -2258,75 +2445,128 @@ def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
         empty = _out_of_ammo(me, shoot_weapon)
         if empty:
             return empty
-        _spend_round(me, shoot_weapon)
 
     mod_note = modifier_text(combat, me)
-    total = roller.roll(10) + (me.dex if melee else me.ref) + level + penalty
-    # 严重伤势：近战/远程各有独立惩罚（肌肉撕裂 melee、失去眼睛 ranged），
-    # 叠加在「所有动作」的 wound_penalty 之上（full.txt:15785-15930）
-    total += me.wound_penalty + modifier_for(combat, me)
-    total += me.melee_penalty if melee else me.ranged_penalty
-
-    if melee:
-        # 断腿：无法闪避攻击（full.txt:15876）——防守方不再掷闪避骰，近战直接命中
-        if target.no_dodge:
-            defend = 0
-            hit = True
-            lines.append(f"  {target.name} 无法闪避（严重伤势：断腿），这一下躲不开。")
-        else:
-            defend = roller.roll(10) + target.dex + target.dodge
-            hit = total > defend
-        lines.append(f"{me.name} 用{skill_name}打 {target.name}：{total} vs 闪避 {defend}"
-                     f"{mod_note}")
-    else:
-        hit = total >= dv
-        lines.append(f"{me.name} 用{skill_name}打 {target.name}：{total} vs DV {dv}"
-                     f"{distance}{mod_note}")
-
-
-    slot.action = True
-
-    if not hit:
-        lines.append("没打中。")
-        if shoot_weapon and shoot_weapon not in NO_RELOAD_WEAPONS:
-            lines.append(f"弹匣剩 {me.rounds_left(shoot_weapon)} 发。")
+    #: 特殊弹种的提示（基础弹药为空串）
+    ammo_note = _ammo_note(me, melee=melee)
+    if ammo_note and (me.ammo_type in AMMO_CHECK_ONLY):
+        # 书里这几类弹「攻击不造成任何伤害，改成过一次 DV 检定」——
+        # 本引擎没有通用的「命中后检定」通道，先诚实说明（「约定」）。
+        slot.action = True
+        if not melee:
+            _spend_round(me, shoot_weapon)
+        lines.append(f"{me.name} 打出{me.ammo_type}{ammo_note}")
+        lines.append("  本引擎还没做「命中后检定」通道，这一枪按不结算处理"
+                     "（见 docs/进度.md 的约定）。")
         _sync_pc_hp(conn, combat, me)
         _advance(conn, combat, roller, lines)
         _save(conn, combat)
         return "\n".join(lines)
+    if ammo_note:
+        lines.append(f"{me.name} 用的是{me.ammo_type}{ammo_note}")
 
-    damage, sixes = _roll_dice_full(
-        roller, WEAPON_DAMAGE.get(skill_name, "2D6"))
-    sp = (target.effective_sp + 1) // 2 if melee else target.effective_sp
-    taken = max(0, damage - sp)
-    was_mortal = target.mortal and target.hp >= 1
-    if taken:
-        target.sp_wear += 1
-    note = ""
-    if aim_part == "head" and taken:
-        # 默认头部瞄准 ×2；目标已有「颅骨骨裂」则倍数改成 3（full.txt:15904）
-        mult = target.head_mult or 2
-        taken *= mult
-        note = f"打中头部：穿透护甲后伤害翻倍（×{mult}）。" if mult == 2 else \
-            f"打中头部：颅骨骨裂，伤害×{mult}。"
-    if aim_part == "leg" and taken:
-        note = (note + " " if note else "") + "腿被打穿：断腿（严重伤势）。"
-    if aim_part == "hand" and taken:
-        note = (note + " " if note else "") + "手中的东西被打落。"
+    # 射速（ROF）：一次攻击动作可以打两下（full.txt:14477-14499）。
+    # 「约定」：引擎默认仍只结算一发（`shots` 不给就是 1），玩家明确要
+    # 「连打/双发/两下」时才按 ROF 连打——否则现有对话里每一枪都会变两下，
+    # 老玩家的节奏全被打乱。瞄准射击把 ROF 限成 1（:14523）。
+    rof = 1 if aim_part else _rof_of(shoot_weapon if not melee else skill_name,
+                                     melee=melee)
+    burst = 1
+    if shots is not None:
+        burst = max(1, min(int(shots), rof, ROF_CAP))
+    if burst > 1:
+        lines.append(f"🔫 {me.name} 用{skill_name}连打 {burst} 下"
+                     f"（{skill_name}射速 {rof}，full.txt:14477-14499）。")
 
-    _apply_damage_hp(combat, target, taken, lines)
-    lines.append(f"命中：伤害 {damage}，护甲挡 {min(damage, sp)}，打掉 {taken} 血。")
-    if note:
-        lines.append(note)
-    # 严重伤势：伤害骰出 ≥2 个 6，毫无例外（穿甲与否都触发）
-    # 致命伤角色再挨打：不看出俩 6，强制受伤势（full.txt:15741-15742）
-    if sixes >= SERIOUS_TRIGGER_SIXES or (was_mortal and taken):
-        maybe_serious_injury(combat, target, sixes,
-                             head=(aim_part == "head"), roller=roller, lines=lines,
-                             force=(was_mortal and taken))
-    lines.append(f"{target.name}：{target.line()}")
-    if shoot_weapon and shoot_weapon not in NO_RELOAD_WEAPONS:
-        lines.append(f"弹匣剩 {me.rounds_left(shoot_weapon)} 发。")
+    slot.action = True
+    hit_any = False
+    for shot in range(burst):
+        if shot:
+            # 第二下要重新扣弹（一次判定一发，:14691-14700）
+            if not melee:
+                empty = _out_of_ammo(me, shoot_weapon)
+                if empty:
+                    lines.append(empty)
+                    break
+        if not melee:
+            _spend_round(me, shoot_weapon)
+
+        total = roller.roll(10) + (me.dex if melee else me.ref) + level + penalty
+        # 严重伤势：近战/远程各有独立惩罚（肌肉撕裂 melee、失去眼睛 ranged），
+        # 叠加在「所有动作」的 wound_penalty 之上（full.txt:15785-15930）
+        total += me.wound_penalty + modifier_for(combat, me)
+        total += me.melee_penalty if melee else me.ranged_penalty
+        total += cyber_hit  # 义体命中修正（瞄准/远视目镜），B 批
+
+        tag = f"（第 {shot + 1} 下）" if burst > 1 else ""
+        if melee:
+            # 断腿：无法闪避攻击（full.txt:15876）——防守方不再掷闪避骰，近战直接命中
+            if target.no_dodge:
+                defend = 0
+                hit = True
+                lines.append(f"  {target.name} 无法闪避（严重伤势：断腿），这一下躲不开。")
+            else:
+                defend = roller.roll(10) + target.dex + target.dodge
+                hit = total > defend
+            lines.append(f"{me.name} 用{skill_name}打 {target.name}{tag}："
+                         f"{total} vs 闪避 {defend}{mod_note}")
+        else:
+            hit = total >= dv
+            lines.append(f"{me.name} 用{skill_name}打 {target.name}{tag}："
+                         f"{total} vs DV {dv}{distance}{mod_note}{cyber_hit_note}")
+
+        if not hit:
+            lines.append("没打中。")
+            if shoot_weapon and shoot_weapon not in NO_RELOAD_WEAPONS:
+                lines.append(f"弹匣剩 {me.rounds_left(shoot_weapon)} 发。")
+            continue
+
+        hit_any = True
+        damage, sixes = _roll_dice_full(
+            roller, WEAPON_DAMAGE.get(skill_name, "2D6"))
+        sp = (target.effective_sp + 1) // 2 if melee else target.effective_sp
+        taken = max(0, damage - sp)
+        was_mortal = target.mortal and target.hp >= 1
+        # 橡胶弹：不造成严重伤势、不削减护甲、HP 不会被打到 1 以下（full.txt:26816-26823）
+        rubber = (not melee) and me.ammo_type == AMMO_RUBBER
+        if taken and not rubber:
+            # 穿甲弹：护甲被穿透时 SP 减值 1 → 2（full.txt:26730-26731）
+            target.sp_wear += _armor_step(me, target, melee=melee)
+        if rubber and target.hp > 1:
+            taken = min(taken, target.hp - 1)
+        note = ""
+        if aim_part == "head" and taken:
+            # 默认头部瞄准 ×2；目标已有「颅骨骨裂」则倍数改成 3（full.txt:15904）
+            mult = target.head_mult or 2
+            taken *= mult
+            note = f"打中头部：穿透护甲后伤害翻倍（×{mult}）。" if mult == 2 else \
+                f"打中头部：颅骨骨裂，伤害×{mult}。"
+        if aim_part == "leg" and taken:
+            note = (note + " " if note else "") + "腿被打穿：断腿（严重伤势）。"
+        if aim_part == "hand" and taken:
+            note = (note + " " if note else "") + "手中的东西被打落。"
+
+        _apply_damage_hp(combat, target, taken, lines)
+        lines.append(f"命中：伤害 {damage}，护甲挡 {min(damage, sp)}，打掉 {taken} 血。")
+        if note:
+            lines.append(note)
+        # 严重伤势：伤害骰出 ≥2 个 6，毫无例外（穿甲与否都触发）
+        # 致命伤角色再挨打：不看出俩 6，强制受伤势（full.txt:15741-15742）
+        # 橡胶弹不造成严重伤势（full.txt:26820「使用这种弹药造成的伤害不会造成严重伤势」）
+        if not rubber and (sixes >= SERIOUS_TRIGGER_SIXES or (was_mortal and taken)):
+            maybe_serious_injury(combat, target, sixes,
+                                 head=(aim_part == "head"), roller=roller, lines=lines,
+                                 force=(was_mortal and taken))
+        lines.append(f"{target.name}：{target.line()}")
+        if rubber:
+            lines.append("（橡胶弹：不削减护甲、不会把人打到 1 HP 以下。）")
+        if shoot_weapon and shoot_weapon not in NO_RELOAD_WEAPONS:
+            lines.append(f"弹匣剩 {me.rounds_left(shoot_weapon)} 发。")
+        if not target.alive:
+            break
+
+    if not hit_any and burst == 1:
+        pass  # 单发失手：文案已在上面给过
 
     _sync_pc_hp(conn, combat, me)
     _check_over(combat, lines)
@@ -2646,12 +2886,21 @@ def act(conn, group_id: str, user_id: str, text: str, *,
             return (f"{me.name} 用的是{reload_weapon}：拈弓搭箭就是攻击动作的一部分，"
                     "永远不用装填（full.txt:14898-14899）。")
         slot.action = True
-        # 「用一种子弹种类完全重新装填」——补满，不是补几发（full.txt:14543-14545）
+        # 「用一种子弹种类完全重新装填」——补满，不是补几发（full.txt:14543-14545）。
+        # 顺带可以换弹种：「装填 穿甲弹」整匣换成穿甲弹，不能混装（:14731-14732）。
         cap = me.mag or _mag_of(reload_weapon)
         before = me.rounds_left(reload_weapon)
         me.ammo = cap
-        lines.append(f"🔄 {me.name} 花一个动作装填{reload_weapon}："
-                     f"{before}/{cap} → {cap}/{cap}。")
+        switched = ammo_type_from_text(body)
+        if switched:
+            before_kind = me.ammo_type
+            me.ammo_type = switched
+            lines.append(f"🔄 {me.name} 花一个动作把{reload_weapon}换成{switched}："
+                         f"{before}/{cap} → {cap}/{cap}"
+                         f"（弹种 {before_kind} → {switched}）。")
+        else:
+            lines.append(f"🔄 {me.name} 花一个动作装填{reload_weapon}："
+                         f"{before}/{cap} → {cap}/{cap}。")
     elif any(w in body for w in _GETUP_WORDS):
         if slot.action:
             return "这回合的动作已经用过了。"
@@ -2659,7 +2908,14 @@ def act(conn, group_id: str, user_id: str, text: str, *,
         lines.append(f"🧍 {me.name} 起身。")
     elif any(w in body for w in _DELAY_WORDS):
         slot.action = True
-        lines.append(f"⏸ {me.name} 结束回合。")
+        # 延迟动作（full.txt:14430-14433）：把动作延迟到先攻队列更靠后位置，
+        # 要选一件具体事件当触发时机（或指定先攻位置），并预先声明动作和目标。
+        # 本引擎没有事件调度器，无法在「目标进入射程/敌人起身」那一刻自动触发，
+        # 所以只做到「结束回合」，并诚实说明这一限制（见 docs/进度.md 的约定）。
+        lines.append(f"⏸ {me.name} 结束回合，等下一个时机再出手。")
+        lines.append("  ⚠️ 书里的「延迟动作」要指定触发事件+预告动作和目标"
+                     "（full.txt:14430-14433），本引擎还没有事件调度，"
+                     "只能靠你在下个时机自己再发指令。")
     elif any(w in body for w in _RUN_WORDS) and body.startswith("跑"):
         if not slot.move:
             return "要先用移动动作，才能「跑」再获得一次移动（书内页 168）。"
@@ -2977,6 +3233,46 @@ def skill_from_text(text: str) -> str | None:
         if key in body:
             return skill
     return "手枪" if "枪" in body else None
+
+
+#: 弹种的口语说法 → ``AMMO_TYPES`` 的键（full.txt:26688-26715）
+AMMO_HINTS = (
+    ("穿甲", AMMO_AP),
+    ("ap 弹", AMMO_AP),
+    ("ap弹", AMMO_AP),
+    ("橡胶", AMMO_RUBBER),
+    ("生物毒素", "生物毒素弹"),
+    ("emp", "EMP 弹"),
+    ("膨胀", "膨胀弹"),
+    ("闪光", "闪光弹"),
+    ("燃烧", "燃烧弹"),
+    ("毒气", "毒气弹"),
+    ("麻醉", "麻醉弹"),
+    ("智能弹", "智能弹药"),
+    ("烟雾", "烟雾弹"),
+    ("催泪", "催泪弹"),
+    ("基础弹", AMMO_BASE),
+)
+
+
+def ammo_type_from_text(text: str) -> str | None:
+    """从话里认出弹种；认不出返回 None（保持当前弹种）。"""
+    body = (text or "").lower()
+    for key, kind in AMMO_HINTS:
+        if key in body:
+            return kind
+    return None
+
+
+#: 「一次打两下」的口语（full.txt:14477-14499 分段移动与开火速率）
+BURST_HINTS = ("连打", "两下", "双发", "连开两枪", "打两枪", "快速射击")
+
+
+def shots_from_text(text: str) -> int | None:
+    """从话里认出「一次打两下」；没提就返回 None（默认按 1 发算）。"""
+    body = text or ""
+    return 2 if any(h in body for h in BURST_HINTS) else None
+
 
 
 def target_from_text(combat: Combat, text: str,
