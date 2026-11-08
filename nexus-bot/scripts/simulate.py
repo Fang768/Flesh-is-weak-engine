@@ -1695,6 +1695,159 @@ async def sc_ammo(s: Sim) -> None:
     conn.close()
 
 
+async def sc_cover(s: Sim) -> None:
+    """A5：掩体打烂后的通行/视线 + 火力压制。"""
+    print("【场景 30】A5 掩体打烂：不挡视线 / 能通行 / 不挡爆炸 + 火力压制")
+    from cyberpunk import easy
+    from core import map as gridmap
+
+    class _Floor:
+        """骰子固定值：d10 掷 10、d6 掷 3（保证确定命中，不死循环）。"""
+
+        def roll(self, sides: int = 10) -> int:
+            return 10 if sides == 10 else min(3, sides)
+
+    # ── 地图层 ─────────────────────────────────────────────
+    gm = gridmap.load("opera_hall")
+    bar = next(c for c in gm.covers if c.id == "bar")
+    show("地图", "吧台", f"({bar.x},{bar.y}) 耐久 {bar.hp}")
+    expect(not gm.playable((bar.x, bar.y)),
+           "立着的掩体占格，人站不进去（约定：规则书没写网格占格）")
+    expect(gm.playable((bar.x, bar.y), {"bar"}),
+           "掩体被打烂之后那一格才能走（full.txt:15454-15458）")
+    expect(bool(gm.blockers((2, 10), (8, 1)))
+           and gm.blockers((2, 10), (8, 1), {"bar"}) == [],
+           "打烂的掩体不再挡视线（full.txt:15416-15431）")
+    expect("掩体已成废墟" in gm.describe((bar.x, bar.y), {"bar"}),
+           "踩上去的描写变成废墟")
+    route, _cost = gm.path((2, 10), (3, 8))
+    route_gone, _c2 = gm.path((2, 10), (3, 8), {"bar"})
+    expect(route == [] and route_gone[-1] == (3, 8),
+           "打烂前绕不过去，打烂后能穿过去")
+    expect("打烂的掩体" in gm.render(gone={"bar"}),
+           "地图渲染把废墟画成 x")
+
+    # ── 战斗层：打烂掩体 ────────────────────────────────────
+    conn = db.connect(":memory:")
+    gid = "qq:COVER"
+    gate = Gate(conn)
+    camp = gate.start_new(gid, "歌剧院之夜", scenario="opera")
+    gate.set_scene(camp.id, "a1.opera")
+    easy_roster.save(conn, gid, "u1", easy.templates()[0])
+    combat.start(conn, gid, campaign_id=camp.id, scene="a1.opera",
+                 enemies=[{"name": "小丑", "count": 2, "faction": "clown"}],
+                 roller=dice.RandomRoller(5))
+    f = combat.load(conn, gid)
+    pc = next(c for c in f.order if c.side == "pc")
+    pc.x, pc.y = (2, 10)
+    e1 = next(c for c in f.combatants if c.name == "小丑1")
+    e2 = next(c for c in f.combatants if c.name == "小丑2")
+    e1.x, e1.y = (8, 1)          # 吧台正好横在中间
+    e2.x, e2.y = (3, 9)          # 缩在吧台背后
+    f.turn_index = f.order.index(pc)
+    f.covers["bar"] = 3          # 差一点就打烂
+    combat._save(conn, f)
+
+    first = combat.attack(conn, gid, "u1", e1.name, skill="手枪",
+                          roller=_Floor())
+    show("掩体", f"打{e1.name}", first.splitlines()[0])
+    expect("吧台" in first and "挡住" in first,
+           "没打烂之前，吧台挡着射界（full.txt:15445-15450）")
+
+    f = combat.load(conn, gid)
+    f.turn_index = f.order.index(next(c for c in f.order if c.side == "pc"))
+    f.round += 1
+    combat._reset_slots(f)
+    combat._save(conn, f)
+    smash = combat.attack(conn, gid, "u1", "吧台", skill="手枪",
+                          roller=_Floor())
+    show("掩体", "打吧台", "\n".join(smash.splitlines()[:2]))
+    expect("掩体被打烂了" in smash, "耐久归零 = 彻底摧毁（full.txt:15454-15458）")
+    f = combat.load(conn, gid)
+    expect(f.covers["bar"] == 0 and "bar" in combat._gone(f),
+           "打烂的掩体记进 gone 集合")
+
+    f = combat.load(conn, gid)
+    f.turn_index = f.order.index(next(c for c in f.order if c.side == "pc"))
+    f.round += 1
+    combat._reset_slots(f)
+    combat._save(conn, f)
+    clear = combat.attack(conn, gid, "u1", e1.name, skill="手枪",
+                          roller=_Floor())
+    show("掩体", f"再打{e1.name}", "\n".join(clear.splitlines()[:2]))
+    expect("挡住" not in clear and "DV" in clear,
+           "打烂之后射界打开，可以正常打（full.txt:15416-15431）")
+
+    # 打烂的掩体连爆炸都不挡了
+    f = combat.load(conn, gid)
+    pc = next(c for c in f.order if c.side == "pc")
+    pc.x, pc.y = (7, 7)
+    e1 = next(c for c in f.combatants if c.name == "小丑1")
+    e2 = next(c for c in f.combatants if c.name == "小丑2")
+    e1.x, e1.y = (3, 7)
+    e2.x, e2.y = (3, 9)
+    f.turn_index = f.order.index(pc)
+    f.covers["bar"] = 0
+    combat._save(conn, f)
+    easy_roster.add_gear(conn, gid, "u1", "手榴弹")
+    blast = combat.throw_grenade(conn, gid, "u1", f"扔手榴弹炸{e1.name}",
+                                 roller=_Floor())
+    show("掩体", "被炸", "\n".join(blast.splitlines()[-3:]))
+    expect("挡下全部爆炸" not in blast and f"{e2.name} 被炸" in blast,
+           "掩体打成废墟后不再替人挡爆炸（full.txt:14873-14894）")
+
+    # ── 战斗层：火力压制 ────────────────────────────────────
+    if combat.active(conn, gid):
+        combat.end(conn, gid)
+    combat.start(conn, gid, campaign_id=camp.id, scene="a1.opera",
+                 enemies=[{"name": "小丑", "count": 1, "faction": "clown"}],
+                 roller=dice.RandomRoller(5))
+    f = combat.load(conn, gid)
+    pc = next(c for c in f.order if c.side == "pc")
+    foe = next(c for c in f.order if c.side != "pc")
+    pc.x, pc.y = (2, 10)
+    pc.ammo = 30
+    pc.mag = 30
+    foe.x, foe.y = (4, 2)        # 16 米，中间没遮挡、也没进掩体
+    f.turn_index = f.order.index(pc)
+    combat._save(conn, f)
+
+    pinned = combat.suppress(conn, gid, "u1", weapon="冲锋枪",
+                             roller=dice.ScriptedRoller([10, 1, 5, 1, 1], loop=True))
+    show("压制", "冲锋枪", "\n".join(pinned.splitlines()[:3]))
+    expect("被压住了" in pinned,
+           "压制对抗：专注+意志 vs 反应+全自动射击（full.txt:14903-14914）")
+    f = combat.load(conn, gid)
+    me = next(c for c in f.combatants if c.side == "pc")
+    expect(me.ammo == 20, "火力压制一次打光 10 发")
+    expect(combat._slots(f)[foe.owner_qq].must_cover,
+           "输的人下个移动动作必须进掩体")
+
+    # 反过来被压：压制只由 PC 发起，这里直接把标记挂到自己身上，
+    # 模拟「敌人压制你」的效果（full.txt:14911-14914 对谁都一样）。
+    f = combat.load(conn, gid)
+    f.turn_index = f.order.index(next(c for c in f.order if c.side == "pc"))
+    f.round += 1
+    combat._reset_slots(f)
+    combat._slots(f)[me.owner_qq].must_cover = True
+    combat._save(conn, f)
+    stay = combat.act(conn, gid, "u1", "移动到 5,2", roller=_Floor())
+    show("压制", "乱跑", stay.splitlines()[0])
+    expect("被火力压着" in stay, "被压着不能乱跑，只能找掩体")
+    f = combat.load(conn, gid)
+    after = next(c for c in f.combatants if c.side == "pc")
+    expect((after.x, after.y) == (2, 10), "被拒绝时人没动")
+
+    free = combat.act(conn, gid, "u1", "移动到 2,9", roller=_Floor())
+    show("压制", "钻掩体", "\n".join(free.splitlines()[:2]))
+    expect("压制解除" in free, "挪到吧台旁边就摆脱压制")
+    f = combat.load(conn, gid)
+    expect(not combat._slots(f)[me.owner_qq].must_cover, "压制标记清掉")
+    moved = next(c for c in f.combatants if c.side == "pc")
+    expect((moved.x, moved.y) == (2, 9), "人站到掩体旁边了")
+
+    conn.close()
+
 SCENARIOS = {
     "cold": sc_cold_start,
     "perm": sc_permission,
@@ -1725,6 +1878,7 @@ SCENARIOS = {
     "crit": sc_crit,
     "autofire": sc_autofire,
     "ammo": sc_ammo,
+    "cover": sc_cover,
 }
 
 

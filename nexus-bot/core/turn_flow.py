@@ -570,6 +570,27 @@ async def handle(
         tail = _aftermath(group_id, campaign, story_id)
         return f"{thrown}\n\n{tail}" if tail else thrown
 
+    # ②'a2 战斗中的火力压制（另一个动作：一个动作 + 10 发，full.txt:14903-14914）
+    if fight is not None and combat.looks_like_suppression(text):
+        try:
+            pinned = combat.suppress(
+                CONN, group_id, user_id,
+                roller=roller or dice.RandomRoller(),
+                weapon=combat.autofire_weapon_from_text(text),
+            )
+        except combat.CombatError as exc:
+            return str(exc)
+        events.record(
+            CONN,
+            group_id=group_id,
+            kind="roll",
+            campaign_id=campaign.id,
+            summary=f"火力压制：{text[:12]}",
+            actor=user_id,
+        )
+        tail = _aftermath(group_id, campaign, story_id)
+        return f"{pinned}\n\n{tail}" if tail else pinned
+
     if fight is not None:
         acted = combat.act(
             CONN, group_id, user_id, text, roller=roller or dice.RandomRoller()

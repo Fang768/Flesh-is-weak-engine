@@ -372,6 +372,10 @@ class Slot:
     no_action_round: int = 0
     #: 严重伤势「步行超过 4m 后下个回合无法移动」（耳朵受损，full.txt:15912）。
     no_move_round: int = 0
+    #: 火力压制的受害者：下一个移动动作必须用来进掩体（full.txt:14911-14914）。
+    #: 这个标记不随回合清零——书里说的是「下一个移动动作」，跨轮也要算，
+    #: 直到他真的把移动动作用在进掩体上为止。
+    must_cover: bool = False
 
     def reset(self) -> None:
         self.move = self.action = self.extra_move = False
@@ -664,6 +668,20 @@ def _cover_hp(combat: "Combat", cover) -> int:
     return int(combat.covers.get(cover.id, cover.hp))
 
 
+def _gone(combat: "Combat") -> set[str]:
+    """这一场里已经打烂的掩体 id（耐久归零）。
+
+    地图是静态的、还带 lru_cache，掩体耐久却按场次记在 `combat.covers` 里，
+    所以视线/通行/遮挡都要用这个集合把「已经没了」的掩体排掉。
+    规则依据：full.txt:15454-15458「耐久度归零的时候掩体就被彻底摧毁了」。
+    """
+    game = _map_for(combat)
+    if game is None:
+        return set()
+    return {c.id for c in game.covers
+            if int(combat.covers.get(c.id, c.hp)) <= 0}
+
+
 _WEAPON_TABLE = ("手枪", "冲锋枪", "霰弹枪", "突击步枪", "狙击步枪", "弓", "榴弹发射器", "火箭筒")
 
 
@@ -690,7 +708,7 @@ def _shot_dv(combat: "Combat", me: "Combatant", target: "Combatant", *,
         if game.meters(here, there) > 2:
             return None, f"够不着：{me.name}和{target.name}隔着 {game.meters(here, there)} 米。"
         return None, ""
-    blockers = game.blockers(here, there)
+    blockers = game.blockers(here, there, _gone(combat))
     if blockers:
         return None, f"视线被{blockers[0]}挡住，这一枪打不出去。"
     dv = game.dv(here, there, weapon, autofire=autofire) if weapon else None
@@ -763,12 +781,15 @@ def close_range(conn, group_id: str, actor_qq: str, text: str) -> str | None:
 
 
 def _spots_from(game, start: tuple[int, int] | None) -> list[tuple[int, int]]:
-    """从 start 开始 BFS 所有可走格；start 无效则从第一个可走格开始。"""
-    if start is None or not game.walkable(start):
+    """从 start 开始 BFS 所有可走格；start 无效则从第一个可走格开始。
+
+    掩体格不算可走（`playable()`）；落位发生在开打瞬间，还没有掩体被打烂。
+    """
+    if start is None or not game.playable(start):
         start = None
         for y, row in enumerate(game.grid):
             for x, _ch in enumerate(row):
-                if game.walkable((x, y)):
+                if game.playable((x, y)):
                     start = (x, y)
                     break
             if start:
@@ -1198,7 +1219,7 @@ def _noncombat_positions(conn, group_id: str, game, map_id: str) -> dict[str, tu
         if saved is None:
             continue
         pos = (saved[0], saved[1])
-        if game.walkable(pos) and pos not in occupied:
+        if game.playable(pos) and pos not in occupied:
             positions[owner] = pos
             occupied.add(pos)
     spawn = tuple(game.spawns.get("pc") or (0, 0))
@@ -1269,11 +1290,14 @@ def scene_move(conn, group_id: str, user_id: str, text: str) -> str | None:
                           if c.name in body or c.id in body), None)
             if cover is not None:
                 near = [p for p in game.neighbors((cover.x, cover.y))
-                        if game.walkable(p) and p not in occupied]
+                        if game.playable(p) and p not in occupied]
                 goal = near[0] if near else None
     if goal is None:
         return None
-    if not game.walkable(goal):
+    if not game.playable(goal):
+        if game.walkable(goal):
+            return (f"({goal[0]},{goal[1]}) 那格放着掩体，站不进去；"
+                    "绕到旁边一格，或者先把掩体打烂。")
         return f"({goal[0]},{goal[1]}) 走不过去（{game.terrain_name(goal)}）。"
 
     budget = _move_cells(card)
@@ -1321,7 +1345,7 @@ def map_text(conn, group_id: str, user_qq: str = "") -> str:
         map_id = str(scene.get("map") or "")
         for owner, pos in _noncombat_positions(conn, group_id, game, map_id).items():
             tokens[pos] = "@" if user_qq and owner == user_qq else "A"
-    text = game.render(tokens)
+    text = game.render(tokens, _gone(combat) if combat is not None else ())
     if combat is not None:
         text += "\n移动：说「移动到 5,6」或「躲到<掩体名>后面」；打掩体：「攻击 <掩体名>」。"
     else:
@@ -1824,17 +1848,19 @@ def _enemy_turn(conn, combat: Combat, enemy: Combatant, roller,
         here, there = (enemy.x, enemy.y), (target.x, target.y)
         weapon = _weapon_of(enemy) or DEFAULT_WEAPON
         shot = game.dv(here, there, weapon)
-        blocked = game.blockers(here, there)
+        gone = _gone(combat)
+        blocked = game.blockers(here, there, gone)
         if blocked or shot is None:
             if "炮塔" in enemy.name:
                 lines.append(f"· {enemy.name} 固定在原地，打不到 {target.name}。")
                 return
             occupied = {(c.x, c.y) for c in combat.order if c is not enemy and c.x >= 0}
-            spots = [p for p in game.neighbors(there)
-                     if game.walkable(p) and p not in occupied]
+            spots = [p for p in game.neighbors(there, gone)
+                     if game.playable(p, gone) and p not in occupied]
             route = []
             for spot in spots:
-                candidate, _used, _arrived = game.move(here, spot, 6)
+                candidate, _used, _arrived = game.move(here, spot, 6, gone)
+
                 if candidate:
                     route = candidate
                     break
@@ -1970,6 +1996,155 @@ def _autofire(conn, combat: "Combat", me: "Combatant", target: "Combatant", card
         maybe_serious_injury(combat, target, sixes, head=False, roller=roller,
                              lines=lines, force=(was_mortal and taken))
     lines.append(f"{target.name}：{target.line()}")
+
+    _sync_pc_hp(conn, combat, me)
+    _check_over(combat, lines)
+    if combat.active:
+        _advance(conn, combat, roller, lines)
+    _save(conn, combat)
+    return "\n".join(lines)
+
+
+# ── 火力压制（full.txt:14903-14914）────────────────────────────
+#
+# 规则依据（rules/red_core/raw/full.txt:14903-14914）：
+#   「当你进行火力压制时，需要花费一个动作和10 发子弹。如果你的弹匣中没有10
+#    发子弹你将不能使用火力压制。任何一个站着的，未处于掩体内，距离你25 米/
+#    码之内而且和你之间没有东西遮挡的人都必须投 1D10+ 专注力（技能）+ 意志力
+#    （属性）与你的 1D10+ 反应+ 全自动射击进行对抗。对抗失败的人的下一个移动
+#    动作必须用来转移到掩体内。如果移动动作不足以让Ta 躲进掩体，Ta 必须使用
+#    跑这个其他动作来溜到掩体后面或者尽可能接近掩体。」
+#
+# 「约定」：
+#   - 书里技能叫「全自动射击」，本仓库技能表叫「自动武器」（同 A3）。
+#   - 「站着」按 alive 且没有 no_move 类伤势处理；「未处于掩体内」按掩体占格
+#     语义判断（站在掩体格上才算躲进去了，见 map.GameMap.playable 的约定）。
+#   - 「和你之间没有东西遮挡」用 map.blockers（墙 / 还立着的掩体）。
+SUPPRESS_RANGE_M = 25
+
+
+def _in_cover(game, x: int, y: int, gone=()) -> bool:
+    """这个人算不算「在掩体里」。
+
+    「约定」：本项目掩体占一格、人和子弹都穿不进去（见 `map.GameMap.playable`），
+    所以站在掩体格上是非法状态，只能用「紧贴一个还立着的掩体（八向相邻）」来
+    表达「躲进掩体」（full.txt:14909「未处于掩体内」、:15445-15450 掩体三定律）。
+    """
+    if game is None or x < 0 or y < 0:
+        return False
+    for c in game.covers:
+        if c.id in (gone or ()) or not c.alive or not c.blocks_los:
+            continue
+        if max(abs(x - c.x), abs(y - c.y)) == 1:
+            return True
+    return False
+
+
+def _card_of(conn, group_id: str, c: "Combatant") -> dict:
+    """取这个人的角色卡（简易卡优先，再退回正式卡）；敌人没有卡就返回空 dict。"""
+    if c.side != "pc":
+        return {}
+    return (easy_roster.get(conn, group_id, c.owner_qq)
+            or roster.get(conn, group_id, c.owner_qq)
+            or {})
+
+
+def _skill_level(conn, group_id: str, c: "Combatant", skill: str) -> int:
+    """角色卡上的技能等级；没卡/没这项技能就是 0。"""
+    return int(((_card_of(conn, group_id, c).get("skills") or {}).get(skill) or 0))
+
+
+def _stat_value(conn, group_id: str, c: "Combatant", stat: str) -> int:
+    """角色卡上的属性值；没卡时用 `Combatant` 自己带的近似值兜底。"""
+    card = _card_of(conn, group_id, c)
+    stats = card.get("stats") or {}
+    if stat in stats:
+        return int(stats[stat] or 0)
+    if card:
+        return 0
+    # 敌人：用战斗数据里最接近的字段（反应→ref、敏捷→dex、意志→skill 的常见做法）
+    return {"REF": c.ref, "DEX": c.dex, "WILL": c.skill,
+            "BODY": c.body}.get(stat, 0)
+
+
+def suppress(conn, group_id: str, actor_qq: str, *,
+             roller: dice.Roller | None = None,
+             weapon: str | None = None) -> str:
+    """火力压制：一个动作 + 10 发，逼 25 米内暴露的人下一个移动动作进掩体。"""
+    roller = roller or dice.RandomRoller()
+    combat = load(conn, group_id)
+    if combat is None or not combat.active:
+        raise CombatError("现在没有在打。")
+    me = next((c for c in combat.combatants
+               if c.owner_qq == actor_qq and c.side == "pc"), None)
+    if me is None:
+        raise CombatError("你还没有参战的角色卡。")
+    if not me.alive:
+        raise CombatError("你已经倒下了。")
+    cur = combat.current
+    if cur is not None and cur.owner_qq != me.owner_qq:
+        raise CombatError(f"现在轮到 {cur.name}，还没到你。")
+    slot = _slots(combat)[me.owner_qq]
+    if slot.action:
+        raise CombatError("你这回合的动作已经用过了，等下一轮。")
+
+    card = (easy_roster.get(conn, group_id, actor_qq)
+            or roster.get(conn, group_id, actor_qq))
+    weapon = weapon or _weapon_of(me, "自动武器") or DEFAULT_WEAPON
+    if weapon not in AUTOFIRE_MAX_HITS:
+        return (f"{weapon}没有全自动模式，压制不了。能压制的只有冲锋枪和"
+                "突击步枪（full.txt:14903-14914）。")
+    left = me.rounds_left(weapon)
+    if left < AUTOFIRE_ROUNDS:
+        return (f"弹匣里只剩 {left} 发，火力压制一次要打光 {AUTOFIRE_ROUNDS} 发"
+                "（full.txt:14903-14906）。先装填。")
+
+    level = int(((card or {}).get("skills") or {}).get("自动武器", 0))
+    total = roller.roll(10) + me.ref + level
+    total += me.wound_penalty + me.ranged_penalty + modifier_for(combat, me)
+
+    slot.action = True
+    me.ammo = left - AUTOFIRE_ROUNDS
+    lines = [f"🔫 {me.name} 用{weapon}压制火力：{total} vs 各人的 "
+             f"专注力+意志力（full.txt:14903-14914）{modifier_text(combat, me)}"]
+    lines.append(f"打光 {AUTOFIRE_ROUNDS} 发，弹匣剩 {me.ammo} 发。")
+
+    game = _map_for(combat)
+    gone = _gone(combat)
+    caught = 0
+    for c in combat.order:
+        if c is me or not c.alive or c.side == me.side:
+            continue
+        # ① 距离 25 米内
+        if game is not None and me.x >= 0 and c.x >= 0:
+            meters = game.meters((me.x, me.y), (c.x, c.y))
+            if meters > SUPPRESS_RANGE_M:
+                continue
+            # ② 中间没有东西遮挡
+            blockers = game.blockers((me.x, me.y), (c.x, c.y), gone)
+            if blockers:
+                continue
+            # ③ 未处于掩体内：本项目里掩体占格、人站不进去，所以「进了掩体」
+            #    按「紧贴一个还立着的掩体」算（见 map.playable 的约定）
+            if _in_cover(game, c.x, c.y, gone):
+                continue
+        else:
+            meters = me.range_m or c.range_m
+            if meters > SUPPRESS_RANGE_M:
+                continue
+        # ④ 对抗：1D10 + 专注 + 意志
+        save = roller.roll(10) + _skill_level(conn, group_id, c, "专注") \
+            + _stat_value(conn, group_id, c, "WILL")
+        if save > total:
+            lines.append(f"  {c.name} 顶住了压制（{save} vs {total}）。")
+            continue
+        caught += 1
+        sl = _slots(combat)[c.owner_qq]
+        sl.must_cover = True
+        lines.append(f"  {c.name} 被压住了（{save} vs {total}）："
+                     "下一个移动动作必须用来进掩体。")
+    if not caught:
+        lines.append("没人被压住。")
 
     _sync_pc_hp(conn, combat, me)
     _check_over(combat, lines)
@@ -2506,6 +2681,7 @@ def act(conn, group_id: str, user_id: str, text: str, *,
             lines.append(f"👟 {me.name} 移动（没有地图，位置由 GM 叙述）。")
         else:
             goal: tuple[int, int] | None = None
+            gone = _gone(combat)  # 已经打烂的掩体不再挡路（full.txt:15454-15458）
             found = re.search(r"(\d+)\s*[,， ]\s*(\d+)", body)
             if found:
                 goal = (int(found.group(1)), int(found.group(2)))
@@ -2515,24 +2691,43 @@ def act(conn, group_id: str, user_id: str, text: str, *,
                               and (c.name in body or c.id in body)), None)
                 if cover is not None:
                     occupied = {(c.x, c.y) for c in combat.order if c is not me}
-                    near = [p for p in game.neighbors((cover.x, cover.y))
-                            if game.walkable(p) and p not in occupied]
+                    near = [p for p in game.neighbors((cover.x, cover.y), gone)
+                            if game.playable(p, gone) and p not in occupied]
                     goal = near[0] if near else None
             if goal is None:
                 names = "、".join(c.name for c in game.covers if _cover_hp(combat, c) > 0)
                 return (f"移动到哪里？可以说坐标（例如「移动 5,6」），或躲到掩体旁边（{names}）。")
-            if not game.walkable(goal):
+            # 被火力压制：下一个移动动作必须用来进掩体（full.txt:14911-14914）。
+            # 「进掩体」在本项目 = 站到掩体旁边（掩体占格，站不进去，见 map.playable 约定）
+            if slot.must_cover:
+                # 低矮掩体挡不住子弹，也不算躲进掩体（full.txt:15530「0 = 不算掩体」）
+                nearby = [c for c in game.covers
+                          if _cover_hp(combat, c) > 0 and c.blocks_los
+                          and max(abs(goal[0] - c.x), abs(goal[1] - c.y)) == 1]
+                if not nearby:
+                    names = "、".join(c.name for c in game.covers
+                                      if _cover_hp(combat, c) > 0 and c.blocks_los)
+                    return (f"{me.name} 被火力压着，这一个移动动作只能往掩体里钻"
+                            f"（{names or '附近没有还能用的掩体'}）。"
+                            "走不到就用「跑」（full.txt:14911-14914）。")
+            if not game.playable(goal, gone):
+                if game.walkable(goal):
+                    return (f"({goal[0]},{goal[1]}) 那格立着掩体，人站不进去；"
+                            "躲到它旁边，或者先把掩体打烂。")
                 return f"({goal[0]},{goal[1]}) 走不过去（{game.terrain_name(goal)}）。"
             budget = _move_budget(me, easy_roster.get(conn, group_id, me.owner_qq)
                                  or roster.get(conn, group_id, me.owner_qq))
-            route, used, arrived = game.move((me.x, me.y), goal, budget)
+            route, used, arrived = game.move((me.x, me.y), goal, budget, gone)
             if not route:
                 return "找不到通往那里的路。"
             me.x, me.y = route[-1]
             slot.move = True
             tail = "" if arrived else "（移动力用完，只走到半路）"
             lines.append(f"👟 {me.name} 移动到 ({me.x},{me.y})，走了 {used} 格{tail}。"
-                         f"{game.describe((me.x, me.y))}（MOVE {budget} → 一次最多 {budget * 2} 米）")
+                         f"{game.describe((me.x, me.y), gone)}（MOVE {budget} → 一次最多 {budget * 2} 米）")
+            if slot.must_cover:
+                slot.must_cover = False
+                lines.append("  掩体挡住了射界，压制解除（full.txt:14911-14914）。")
             _after_walk(me, used, slot, combat, lines)
     else:
         return None
@@ -2686,7 +2881,8 @@ def throw_grenade(conn, group_id: str, actor_qq: str, text: str = "", *,
             continue
         cover = None
         if on_map and center and c.x >= 0 and c.y >= 0:
-            found = game.cover_on_line(center, (c.x, c.y))
+            # 已经打烂的掩体不再挡爆炸（full.txt:14873-14894、:15454-15458）
+            found = game.cover_on_line(center, (c.x, c.y), _gone(combat))
             if found is not None and _cover_hp(combat, found) > 0:
                 cover = found
         if cover is not None and _cover_hp(combat, cover) >= damage:
@@ -2742,6 +2938,14 @@ SKILL_HINTS = {
 #: 全自动射击的说法（「约定」：规则书只写「全自动射击」，这些是玩家口语）
 AUTOFIRE_HINTS = ("全自动", "连射", "扫射", "连发", "突突", "哒哒")
 
+#: 火力压制的说法（full.txt:14903-14914 只写「火力压制」/「压制」）
+SUPPRESS_HINTS = ("火力压制", "压制射击", "压制火力", "压制")
+
+
+def looks_like_suppression(text: str) -> bool:
+    """这句话是不是在要求火力压制（另一个动作，同样 10 发，full.txt:14903）。"""
+    return any(h in (text or "") for h in SUPPRESS_HINTS)
+
 
 def looks_like_autofire(text: str) -> bool:
     """这句话是不是在要求全自动射击（一个动作 + 10 发，full.txt:14800）。"""
@@ -2749,7 +2953,10 @@ def looks_like_autofire(text: str) -> bool:
 
 
 def looks_like_attack(text: str) -> bool:
-    # 扫射/全自动本身就是攻击动作，不必再说「打他」
+    # 扫射/全自动本身就是攻击动作，不必再说「打他」；
+    # 火力压制是**另一个**动作（full.txt:14903），不算攻击。
+    if looks_like_suppression(text):
+        return False
     return (any(h in (text or "") for h in ATTACK_HINTS)
             or looks_like_autofire(text))
 

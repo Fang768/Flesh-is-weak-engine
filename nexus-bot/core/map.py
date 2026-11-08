@@ -6,12 +6,19 @@
   · 167 页  网格移动：每轮最多 MOVE 格（1 格 = 2 米），可走对角线
 
 只做数据与几何，不做规则裁决；裁决在 core/combat.py。
+
+`gone` 参数：本次战斗里**已经被打烂的掩体 id 集合**。地图是静态数据（还带
+lru_cache），掩体的耐久却按场次存在 `combat.covers` 里，所以凡是要按「掩体
+现在还在不在」算的地方（视线/通行/遮挡）都把 `gone` 透传进来。
+规则依据：full.txt:15454-15458「耐久度归零的时候掩体就被彻底摧毁了」、
+:15416-15431（打穿路障后射手重新看得见目标）。
 """
 
 from __future__ import annotations
 
 import heapq
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -117,14 +124,27 @@ class GameMap:
         return self.legend.get(self.at(pos), self.at(pos))
 
     def walkable(self, pos: tuple[int, int]) -> bool:
+        """地形层面可走（不看掩体）。"""
         return self.inside(pos) and self.at(pos) in WALKABLE
+
+    def playable(self, pos: tuple[int, int], gone: Iterable[str] = ()) -> bool:
+        """实际能不能站进去：地形可走、且这一格上没有还立着的掩体。
+
+        「约定」：掩体占一格，人和子弹都不能直接穿过去；打烂之后（`gone` 里）
+        这一格恢复可走。规则书没写网格层面的占格（full.txt:15446-15458 只说
+        「整个人躲在能挡子弹的东西后面才算掩体」），这里按网格战术的通行做法
+        补上，属于本项目的约定。
+        """
+        return self.walkable(pos) and self.cover_at(pos, gone) is None
 
     def cost(self, pos: tuple[int, int]) -> int:
         return TERRAIN_COST.get(self.at(pos), 99)
 
-    def cover_at(self, pos: tuple[int, int]) -> Cover | None:
+    def cover_at(self, pos: tuple[int, int], gone: Iterable[str] = ()) -> Cover | None:
+        """这一格上的掩体；`gone` 里的（已打烂）不算。"""
+        skip = gone if isinstance(gone, (set, frozenset)) else set(gone)
         for c in self.covers:
-            if (c.x, c.y) == pos and c.alive:
+            if (c.x, c.y) == pos and c.alive and c.id not in skip:
                 return c
         return None
 
@@ -154,33 +174,47 @@ class GameMap:
         return table[idx]
 
     # ── 视线 ────────────────────────────────────────────────
-    def blockers(self, a: tuple[int, int], b: tuple[int, int]) -> list[str]:
-        """返回挡在两人之间的东西（墙 / 还活着的掩体），空列表 = 通视。"""
+    def blockers(self, a: tuple[int, int], b: tuple[int, int],
+                 gone: Iterable[str] = ()) -> list[str]:
+        """返回挡在两人之间的东西（墙 / 还活着的掩体），空列表 = 通视。
+
+        `gone` 里的掩体已经被打烂（耐久归零），不再挡视线：full.txt:15454-15458
+        「耐久度归零的时候掩体就被彻底摧毁了」，:15416-15431 的例子也是打穿
+        路障之后射手重新看得见目标。
+        """
         out: list[str] = []
         for pos in line_cells(a, b)[1:-1]:
             if self.at(pos) == WALL:
                 out.append(f"墙{pos}")
                 break
-            cover = self.cover_at(pos)
+            cover = self.cover_at(pos, gone)
             if cover and cover.blocks_los:
                 out.append(cover.name)
                 break
         return out
 
-    def visible(self, a: tuple[int, int], b: tuple[int, int]) -> bool:
-        return not self.blockers(a, b)
+    def visible(self, a: tuple[int, int], b: tuple[int, int],
+                gone: Iterable[str] = ()) -> bool:
+        return not self.blockers(a, b, gone)
 
-    def cover_on_line(self, a: tuple[int, int], b: tuple[int, int]) -> Cover | None:
+    def cover_on_line(self, a: tuple[int, int], b: tuple[int, int],
+                      gone: Iterable[str] = ()) -> Cover | None:
         for pos in line_cells(a, b)[1:-1]:
-            c = self.cover_at(pos)
+            c = self.cover_at(pos, gone)
             if c:
                 return c
         return None
 
     # ── 移动 ────────────────────────────────────────────────
-    def path(self, start: tuple[int, int], goal: tuple[int, int]) -> tuple[list[tuple[int, int]], int]:
-        """Dijkstra 最短路。返回 (路径含起点终点, 消耗格数)；不可达返回 ([], 0)。"""
-        if not self.walkable(start) or not self.walkable(goal):
+    def path(self, start: tuple[int, int], goal: tuple[int, int],
+             gone: Iterable[str] = ()) -> tuple[list[tuple[int, int]], int]:
+        """Dijkstra 最短路。返回 (路径含起点终点, 消耗格数)；不可达返回 ([], 0)。
+
+        掩体格算障碍物（`playable()`），打烂之后（在 `gone` 里）变回可走
+        ——full.txt:15454「任何你可以当成掩体的东西都有耐久度…耐久度归零的
+        时候掩体就被彻底摧毁了。」「约定」：掩体占格，打烂后能走进去。
+        """
+        if not self.playable(start, gone) or not self.playable(goal, gone):
             return [], 0
         dist = {start: 0}
         prev: dict[tuple[int, int], tuple[int, int]] = {}
@@ -191,7 +225,7 @@ class GameMap:
                 break
             if d > dist.get(cur, 1 << 30):
                 continue
-            for nxt in self.neighbors(cur):
+            for nxt in self.neighbors(cur, gone):
                 nd = d + self.cost(nxt)
                 if nd < dist.get(nxt, 1 << 30):
                     dist[nxt] = nd
@@ -205,22 +239,24 @@ class GameMap:
         route.reverse()
         return route, dist[goal]
 
-    def neighbors(self, pos: tuple[int, int]) -> list[tuple[int, int]]:
+    def neighbors(self, pos: tuple[int, int],
+                  gone: Iterable[str] = ()) -> list[tuple[int, int]]:
         x, y = pos
         out = []
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
             nxt = (x + dx, y + dy)
-            if not self.walkable(nxt):
+            if not self.playable(nxt, gone):
                 continue
             if dx and dy:  # 不允许贴角穿过两堵墙
-                if not self.walkable((x + dx, y)) or not self.walkable((x, y + dy)):
+                if not self.playable((x + dx, y), gone) or not self.playable((x, y + dy), gone):
                     continue
             out.append(nxt)
         return out
 
-    def move(self, start: tuple[int, int], goal: tuple[int, int], budget: int) -> tuple[list[tuple[int, int]], int, bool]:
+    def move(self, start: tuple[int, int], goal: tuple[int, int], budget: int,
+             gone: Iterable[str] = ()) -> tuple[list[tuple[int, int]], int, bool]:
         """按移动力走。返回 (实际路径, 实际消耗, 是否到达)。走不到就停在能到的最远处。"""
-        route, cost = self.path(start, goal)
+        route, cost = self.path(start, goal, gone)
         if not route or cost <= budget:
             return route, cost, bool(route)
         walked = [start]
@@ -234,8 +270,11 @@ class GameMap:
         return walked, used, False
 
     # ── 渲染 ────────────────────────────────────────────────
-    def render(self, tokens: dict[tuple[int, int], str] | None = None) -> str:
+    def render(self, tokens: dict[tuple[int, int], str] | None = None,
+               gone: Iterable[str] = ()) -> str:
         tokens = tokens or {}
+        skip = gone if isinstance(gone, (set, frozenset)) else set(gone)
+        ruined = {(c.x, c.y) for c in self.covers if c.id in skip or not c.alive}
         head = f"{self.name} {self.width}×{self.height}（每格 {self.cell} 米）"
         cols = "".join(str(i % 10) for i in range(self.width))
         lines = [head, f"  {cols}"]
@@ -246,17 +285,25 @@ class GameMap:
                 if tok:
                     cells.append(tok)
                     continue
-                cover = self.cover_at((x, y))
-                cells.append("o" if cover else ch)
+                cover = self.cover_at((x, y), skip)
+                if cover:
+                    cells.append("o")
+                elif (x, y) in ruined:
+                    cells.append("x")  # 打烂的掩体：只剩一地碎块，能走也能看穿
+                else:
+                    cells.append(ch)
             lines.append(f"{y % 10} {''.join(cells)}")
-        lines.append("图例：@ 你  E 敌人  A 队友  o 掩体  # 墙  ~ 水  % 废墟  + 门")
+        lines.append("图例：@ 你  E 敌人  A 队友  o 掩体  x 打烂的掩体  "
+                     "# 墙  ~ 水  % 废墟  + 门")
         return chr(10).join(lines)
 
-    def describe(self, pos: tuple[int, int]) -> str:
+    def describe(self, pos: tuple[int, int], gone: Iterable[str] = ()) -> str:
         bits = [self.terrain_name(pos)]
-        cover = self.cover_at(pos)
+        cover = self.cover_at(pos, gone)
         if cover:
             bits.append(f"有{cover.name}")
+        elif any((c.x, c.y) == pos for c in self.covers):
+            bits.append("掩体已成废墟")
         door = [e for e in self.exits if (e.x, e.y) == pos]
         if door:
             bits.append("通向" + "、".join(e.label for e in door))
