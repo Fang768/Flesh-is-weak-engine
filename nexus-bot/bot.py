@@ -36,5 +36,11 @@ for _dir in sorted(pathlib.Path("plugins").iterdir()):
     if _dir.is_dir() and (_dir / "__init__.py").exists() and _dir.name not in SKIP:
         nonebot.load_plugin(f"plugins.{_dir.name}")
 
+# 一次性启动任务（幂等）：给存量卡补发 RED 起始资金 500 EB。
+# 不补的话，2026-11-10 之前建的卡装不起任何义体（见 core/runtime.py）。
+from core import runtime as _runtime
+
+_runtime.run_startup_tasks()
+
 if __name__ == "__main__":
     nonebot.run()

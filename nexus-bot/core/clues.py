@@ -82,7 +82,8 @@ def attempt(
 
     natural = roller.roll(10)
     total = natural + stat_value + level
-    ok = total > dv if is_easy else total >= dv
+    # 静态 DV 检定统一按 RED：达到即成功（平局只在对检定里才判守方胜）
+    ok = total >= dv
 
     head = (
         f"{'✅' if ok else '❌'} 调查「{skill}」 DV{dv}"

@@ -452,6 +452,11 @@ def check(
         if cb:
             mods = mods + (cb,)
             cyber_note = "（义体：" + "+".join(c_notes) + "）"
+        # 职业能力加值（简易卡 ability_bonus：制造者/战斗意识这类）
+        ab, a_notes = easy.ability_bonus(cc, skill=(skill or "").strip())
+        if ab:
+            mods = mods + (ab,)
+            cyber_note = cyber_note + "（" + "、".join(a_notes) + "）"
 
     easy_card = easy_roster.get(CONN, group_id, user_id)
     if easy_card is not None:
@@ -462,7 +467,10 @@ def check(
         stat_value = int(easy_card["stats"].get(stat, 0))
         natural = roller.roll(10)
         total = natural + stat_value + int(level) + sum(mods)
-        ok = total > dv  # Interlock：严格大于
+        # 判定号按 RED 统一：静态 DV 检定「达到即成功」（`full.txt:11659` 例 14 过 DV13）。
+        # 书里写「平局守方胜」的是**对抗检定**（`:11583`、`:14699`），由
+        # ``checks.opposed`` 用 `>` 处理，与这里不是同一个口径。
+        ok = total >= dv
         head = f"{'✅' if ok else '❌'} {easy_card['name']} 的「{name}」检定"
         detail = f"1d10={natural} + {stat} {stat_value} + 技能 {level} = {total} vs DV{dv}"
         hp = easy_card.get("hp", "?")

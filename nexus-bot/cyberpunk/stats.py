@@ -97,10 +97,16 @@ def derived(stats: dict[str, int], *, hp: int | None = None) -> DerivedStats:
 
 
 def validate_stats(stats: dict[str, int]) -> None:
-    """属性值域 2–10（人类正常范围 2–8，改造/极端可到 10）。"""
+    """属性值域 2–10（人类正常范围 2–8，改造/极端可到 10）。
+
+    例外：**EMP 可以降到 1**。人性每掉 10 点共情 −1，而义体规则把 EMP 的
+    下限写成 ``max(1, 人性 // 10)``（``full.txt:6970``、``:9834``「EMP 最低 1」），
+    所以装义体把人形压到 10 以下时 EMP=1 是合法状态，不应当成建卡越界。
+    """
     for key in STAT_ORDER:
         if key not in stats:
             raise ValueError(f"缺少属性 {key}")
         value = stats[key]
-        if not STAT_MIN <= value <= STAT_MAX:
-            raise ValueError(f"{key}={value} 越界，应在 {STAT_MIN}–{STAT_MAX}")
+        low = 1 if key == "EMP" else STAT_MIN
+        if not low <= value <= STAT_MAX:
+            raise ValueError(f"{key}={value} 越界，应在 {low}–{STAT_MAX}")

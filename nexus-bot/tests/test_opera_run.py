@@ -16,7 +16,9 @@ def opera(monkeypatch):
     gate = Gate(c)
     camp = gate.start_new("g1", "歌剧院之夜", scenario="opera")
     gate.resume("g1")
-    easy_roster.save(c, "g1", "u1", easy.templates()[0])
+    _card = dict(easy.templates()[0])
+    _card["cyber"] = list(_card.get("cyber") or []) + ["交互接口"]  # 网行前置
+    easy_roster.save(c, "g1", "u1", _card)
     monkeypatch.setattr(turn_flow, "CONN", c)
     monkeypatch.setattr(turn_flow, "GATE", gate)
     yield c, gate, camp

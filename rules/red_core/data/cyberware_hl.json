@@ -412,6 +412,358 @@
    "hl_dice": "1d6",
    "cost": 100,
    "line": 10315
+  },
+  "克伦齐科夫": {
+   "section": "神经组件",
+   "facility": "诊所",
+   "hl": 14,
+   "hl_dice": "4d6",
+   "cost": 500,
+   "line": 9803
+  },
+  "化学物质分析器": {
+   "section": "神经组件",
+   "facility": "N/A",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 500,
+   "line": 9816
+  },
+  "记忆芯片": {
+   "section": "神经组件",
+   "facility": "N/A",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 10,
+   "line": 9823
+  },
+  "嗅觉增强": {
+   "section": "神经组件",
+   "facility": "N/A",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 100,
+   "line": 9829
+  },
+  "痛觉编辑器": {
+   "section": "神经组件",
+   "facility": "N/A",
+   "hl": 14,
+   "hl_dice": "4d6",
+   "cost": 1000,
+   "line": 9835
+  },
+  "技能芯片": {
+   "section": "神经组件",
+   "facility": "N/A",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 500,
+   "line": 9840
+  },
+  "触觉增强": {
+   "section": "神经组件",
+   "facility": "N/A",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 100,
+   "line": 9850
+  },
+  "赛博手臂": {
+   "section": "赛博义肢",
+   "facility": "医院",
+   "hl": 7,
+   "hl_dice": "2D6",
+   "cost": 500,
+   "line": 10210
+  },
+  "标准手": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10217
+  },
+  "大指虎": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 100,
+   "line": 10224
+  },
+  "赛博碟板": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1D6",
+   "cost": 500,
+   "line": 10231
+  },
+  "飞爪手": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 100,
+   "line": 10238
+  },
+  "医用扫描仪": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2D6",
+   "cost": 500,
+   "line": 10245
+  },
+  "弹出式榴弹发射器": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2D6",
+   "cost": 500,
+   "line": 10253
+  },
+  "弹出式近战武器": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2D6",
+   "cost": 500,
+   "line": 10261
+  },
+  "弹出式盾牌": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2D6",
+   "cost": 500,
+   "line": 10270
+  },
+  "弹出式远程武器": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2D6",
+   "cost": 500,
+   "line": 10278
+  },
+  "快拆挂扣": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2D6",
+   "cost": 100,
+   "line": 10287
+  },
+  "开膛手": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1D6",
+   "cost": 500,
+   "line": 10293
+  },
+  "刮刮乐": {
+   "section": "赛博义肢",
+   "facility": "购物中心",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10301
+  },
+  "肩部摄像头": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2D6",
+   "cost": 500,
+   "line": 10308
+  },
+  "“切削通”": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1D6",
+   "cost": 500,
+   "line": 10316
+  },
+  "皮下握把": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1D6",
+   "cost": 100,
+   "line": 10324
+  },
+  "技工扫描仪": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2D6",
+   "cost": 500,
+   "line": 10331
+  },
+  "工具手": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1D6",
+   "cost": 100,
+   "line": 10339
+  },
+  "金刚狼爪": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2D6",
+   "cost": 500,
+   "line": 10346
+  },
+  "赛博腿": {
+   "section": "赛博义肢",
+   "facility": "医院",
+   "hl": 3,
+   "hl_dice": "1d6",
+   "cost": 100,
+   "line": 10364
+  },
+  "标准脚": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 100,
+   "line": 10373
+  },
+  "攀爬脚": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1D6",
+   "cost": 500,
+   "line": 10380
+  },
+  "跳跃增强": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1D6",
+   "cost": 500,
+   "line": 10387
+  },
+  "轮滑脚": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1D6",
+   "cost": 500,
+   "line": 10393
+  },
+  "剃刀足": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1D6",
+   "cost": 500,
+   "line": 10400
+  },
+  "蹼足": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1D6",
+   "cost": 500,
+   "line": 10408
+  },
+  "硬化防护": {
+   "section": "赛博义肢",
+   "facility": "诊所",
+   "hl": 3,
+   "hl_dice": "1D6",
+   "cost": 1000,
+   "line": 10412
+  },
+  "塑料外壳": {
+   "section": "赛博义肢",
+   "facility": "购物中心",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 100,
+   "line": 10419
+  },
+  "真皮涂层": {
+   "section": "赛博义肢",
+   "facility": "购物中心",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 500,
+   "line": 10427
+  },
+  "超铬涂层": {
+   "section": "赛博义肢",
+   "facility": "购物中心",
+   "hl": 0,
+   "hl_dice": null,
+   "cost": 1000,
+   "line": 10434
+  },
+  "人造肩膀改造": {
+   "section": "赛博格组件",
+   "facility": "医院",
+   "hl": 14,
+   "hl_dice": "4d6",
+   "cost": 1000,
+   "line": 10449
+  },
+  "植入线性框架β": {
+   "section": "赛博格组件",
+   "facility": "医院",
+   "hl": 14,
+   "hl_dice": "4d6",
+   "cost": 5000,
+   "line": 10455
+  },
+  "植入线性框架Σ": {
+   "section": "赛博格组件",
+   "facility": "医院",
+   "hl": 14,
+   "hl_dice": "4d6",
+   "cost": 1000,
+   "line": 10464
+  },
+  "复眼改造": {
+   "section": "赛博格组件",
+   "facility": "医院",
+   "hl": 14,
+   "hl_dice": "4d6",
+   "cost": 1000,
+   "line": 10473
+  },
+  "传感器阵列": {
+   "section": "赛博格组件",
+   "facility": "医院",
+   "hl": 14,
+   "hl_dice": "4d6",
+   "cost": 1000,
+   "line": 10479
+  },
+  "独立供氧": {
+   "section": "体内赛博组件",
+   "facility": "医院",
+   "hl": 2,
+   "hl_dice": "1d6/2",
+   "cost": 1000,
+   "line": 10113
+  },
+  "雷达/声呐植入": {
+   "section": "体内赛博组件",
+   "facility": "诊所",
+   "hl": 7,
+   "hl_dice": "2d6",
+   "cost": 1000,
+   "line": 10137
   }
  }
 }

@@ -20,6 +20,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 
+from cyberpunk import immunity
 from cyberpunk.dice import Roller
 from cyberpunk.damage import roll_notation
 from cyberpunk.stats import derived as derived_stats
@@ -255,6 +256,17 @@ def drown(conn, group_id, owner_qq, *, roller: Roller) -> Hazard:
     if found is None:
         raise HazardError("你还没有角色卡。")
     kind, card = found
+    # 鳃（full.txt:10101-10105「能够在水下呼吸」）/ 独立供氧（:10112-10117）
+    # 直接免溺水：先看免疫，再看屏息。
+    source = immunity.is_immune(card, "溺水") or immunity.is_immune(card, "窒息")
+    if source:
+        return Hazard(
+            kind="溺水/窒息",
+            damage=0,
+            hp_before=_hp_of(conn, group_id, owner_qq),
+            hp_after=_hp_of(conn, group_id, owner_qq),
+            note=f"{source}：在水下照常呼吸，不受溺水影响。",
+        )
     body = _body(card) or 4
     return _settle(
         conn, group_id, owner_qq,
@@ -285,6 +297,21 @@ def poison(conn, group_id, owner_qq, grade: str, *, roller: Roller, resisted: bo
     if key not in POISON:
         raise HazardError("毒性要写：轻 / 强 / 致命。")
     dv, dice = POISON[key]
+    # 鼻滤器（:10130-10135「对毒气、废气等类似危险效果免疫」）。
+    # 「约定」：鼻滤器免的是**毒气/废气**这类环境效果；书本给「中毒」检定的是
+    # 折磨&药物耐受，毒物中和植入（:10140-10145）才是那条 +2，不是免疫。
+    # 所以只有毒气档（吸入性）走免疫，注射/口服中毒仍要检定。
+    found = _read(conn, group_id, owner_qq)
+    if found is not None:
+        source = immunity.is_immune(found[1], "毒气")
+        if source:
+            return Hazard(
+                kind=f"中毒（{key}）",
+                damage=0,
+                hp_before=_hp_of(conn, group_id, owner_qq),
+                hp_after=_hp_of(conn, group_id, owner_qq),
+                note=f"{source}：毒气/废气被过滤掉，不受影响。",
+            )
     if resisted:
         return Hazard(
             kind=f"中毒（{key}）",

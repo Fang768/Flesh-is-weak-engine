@@ -30,7 +30,7 @@ from core import (
 )
 from core.runtime import CONN, GATE
 from core.session import Mode
-from cyberpunk import cyber_bonus, dice
+from cyberpunk import cyber_bonus, dice, easy
 
 
 def _card_of(group_id: str, user_id: str) -> tuple[dict | None, bool]:
@@ -636,6 +636,50 @@ async def handle(
         )
         return reply
 
+    # ⓪b 赛博组件卸载：原价卖出 − 手术费，人性不退还
+    #    full.txt:535-538（卸后再装会再扣一次）、:602（二手按原价出售）、
+    #    :19092-19097（移除前人性无法恢复）、:18770-18781（设施手术费）
+    if cyber_flow.looks_like_uninstall(text):
+        reply = cyber_flow.uninstall(CONN, group_id, user_id, text, roller=roller)
+        events.record(
+            CONN,
+            group_id=group_id,
+            kind="note",
+            campaign_id=campaign.id,
+            summary=f"卸下赛博组件：{text[:16]}",
+            actor=user_id,
+        )
+        return reply
+
+    # ⓪b2 精神医疗疗程（full.txt:19081-19118）：花钱回人性，受义体拉低的上限限制
+    if any(w in text for w in ("精神医疗", "心理治疗", "回人性", "恢复人性")):
+        reply = cyber_flow.therapy(CONN, group_id, user_id, text, roller=roller)
+        events.record(
+            CONN,
+            group_id=group_id,
+            kind="note",
+            campaign_id=campaign.id,
+            summary=f"精神医疗：{text[:16]}",
+            actor=user_id,
+        )
+        return reply
+
+    # ⓪b4 侦测（C 类感知义体）：列出能感知什么，信号由 DM 裁定
+    if any(w in text for w in ("侦测", "扫描周围", "感知周围", "探测周围")):
+        reply = cyber_flow.detect(CONN, group_id, user_id)
+        if "侦测义体待命" in reply or "没有可用的侦测义体" in reply:
+            return reply
+
+    # ⓪b3 肩部摄像头（full.txt:28460-28471）：**自由动作**，纯剧情、不进数值。
+    #      「可以成功隐藏而无需检定，并且可以不花费一个动作进行拔出或收纳。」
+    if "摄像头" in text and any(w in text for w in
+                                ("放出", "伸出", "探出", "收起", "收纳", "打开", "关闭")):
+        cam_card, _cam_easy = _card_of(group_id, user_id)
+        if cam_card is not None and cyber_bonus.has_shoulder_cam(cam_card):
+            return ("📷 肩部摄像头的收纳/放出**不花费动作**（full.txt:28460-28471），"
+                    "也无需检定就能藏好。它可以独立追踪目标，把画面录到记忆芯片或"
+                    "掌上代理里——这段交给 DM 叙述，引擎不结算战斗数值。")
+
     # ⓪b 非战斗移动：场景有地图时按 MOVE×2 米走，不交给模型编位置
     moved = combat.scene_move(CONN, group_id, user_id, text)
     if moved:
@@ -895,6 +939,15 @@ async def handle(
         if cb:
             mods = mods + (cb,)
             cyber_note = "（义体：" + "+".join(c_notes) + "）"
+
+    # 职业能力加值（简易卡的 ability_bonus：制造者/战斗意识这类）。
+    # 以前是把 +4 直接烘焙进技能等级，现在拆成字段在这里运行时加，
+    # 这样义体加成与职业能力各自独立、不会重复计算。
+    if card is not None:
+        ab, a_notes = easy.ability_bonus(card, skill=(proposal.skill or "").strip())
+        if ab:
+            mods = mods + (ab,)
+            cyber_note = cyber_note + "（" + "、".join(a_notes) + "）"
 
     outcome = turn.decide(
         proposal,

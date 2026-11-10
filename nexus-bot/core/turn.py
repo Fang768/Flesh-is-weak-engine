@@ -117,20 +117,24 @@ class Outcome:
 
 
 def allowed_skills(card: dict, is_easy: bool) -> list[str]:
-    from cyberpunk import easy, names
+    from cyberpunk import easy, names, skills
 
     if is_easy:
         return sorted(card.get("skills", {}))
-    table = names.skill_stat()
+    table = {**names.skill_stat(), **skills.skill_table()}
     return sorted(s for s in card.get("skills", {}) if s in table)
 
 
 def skill_stat_code(skill: str, card: dict, is_easy: bool) -> str | None:
-    from cyberpunk import easy, names
+    """技能 → 属性键。**RED 优先**（``rules/red_core/data/skills.json``）。"""
+    from cyberpunk import easy, skills
 
+    red = skills.stat_of(skill)
+    if red:
+        return red
     if is_easy:
         return easy.skill_stat(skill)
-    return names.stat_of(skill) or SKILL_STAT_FALLBACK.get(skill)
+    return SKILL_STAT_FALLBACK.get(skill)
 
 
 #: 少量别名（模板里的近战/子弹类叫法和术语表不完全一致）
@@ -241,8 +245,8 @@ def decide(
             purpose=f"{hero.name}的{skill or '行动'}",
         )
 
-    # 简易版严格 > DV；V3 是 >= DV
-    success = result.success if not is_easy else result.total > dv
+    # 判定号统一按 RED：静态 DV 检定「达到即成功」（两侧同一口径）
+    success = result.success
     outcome = Outcome(
         skill=skill or proposal.skill or "行动",
         dv=dv,

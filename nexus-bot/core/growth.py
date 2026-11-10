@@ -28,6 +28,9 @@ def blank_state() -> dict:
         "hp": None,
         "notes": "",
         "eb": 0,
+        # 是否已经发过起始资金。老库的卡没有这个键 → 迁移时补发一次；
+        # 补过之后再也不会补，避免「花光了钱又冒出来 500」的刷钱 bug。
+        "eb_granted": 0,
         "favors": [],
         "settled": [],
     }
@@ -124,6 +127,97 @@ def grant_eb(card: dict, amount: int, *, reason: str = "") -> int:
     st = state(card)
     st["eb"] = int(st.get("eb") or 0) + int(amount)
     return st["eb"]
+
+
+def spend_eb(card: dict, amount: int, *, reason: str = "") -> int:
+    """花钱：钱不够就拒绝（规则书没有赊账条款，标「约定」）。返回余额。"""
+    cost = int(amount or 0)
+    if cost < 0:
+        raise GrowthError("花费不能为负")
+    if cost == 0:
+        return eb(card)
+    have = eb(card)
+    if have < cost:
+        raise GrowthError(f"EB 不够：要 {cost}，你只有 {have}（差 {cost - have}）。")
+    st = state(card)
+    st["eb"] = have - cost
+    return st["eb"]
+
+
+# ---------- 购买档位（谁买得到什么） ----------
+#
+# 规则依据：
+# * ``full.txt:30347``「如果没有经验丰富的掮客或他们的夜市的帮助，你只能购买到
+#   高价级别以下的商品」→ 非掮客上限 100 EB。
+# * ``full.txt:583-585``「等级3：您可以买到低于500 欧元（昂贵）的任何物品。
+#   等级7：您可以买到低于1000 欧元（特贵）的任何东西。」
+# * ``full.txt:30352-30369`` 八档价格：廉价10 / 平价20 / 略贵50 / 高价100 /
+#   昂贵500 / 特贵1000 / 奢侈5000 / 超奢10000。
+#
+# 「约定」：档位用「低于该档」的语义（书里说「低于 500」），所以 3 级掮客买
+# 不到正好 500 的东西，只能买 <500 的。超奢档按 10000 起，视为无上限。
+
+#: 没有掮客时能买到的上限（「高价」档 = 100 EB）
+BROKERLESS_CAP = 100
+
+
+def broker_cap(level: int) -> int:
+    """掮客按职业等级能买到的价格上限（开区间：只能买**低于**这个数）。"""
+    lv = int(level or 0)
+    if lv >= 9:
+        return 10000       # 午夜市场：超奢档
+    if lv >= 7:
+        return 1000        # 特贵以下
+    if lv >= 3:
+        return 500         # 昂贵以下
+    return BROKERLESS_CAP
+
+
+def can_buy(price: int, *, broker_level: int = 0) -> bool:
+    """这个价位买不买得到（不管钱够不够，只管渠道通不通）。"""
+    return int(price or 0) < broker_cap(broker_level)
+
+
+#: 建卡起始资金（RED `full.txt:8631`「街鼠和边缘行者还可以额外获得 500 欧元」）。
+#: 面面俱到法的 2550 EB 属于另一条建卡路线（`:2869`/`:9388`），本仓库的位卡
+#: 模板走的是街头鼠辈/边缘行者口径，所以统一 500。
+STARTING_EB = 500
+
+
+def init_starting_eb(card: dict, amount: int = STARTING_EB) -> int:
+    """发起始资金（建卡时调用）。已经发过就不重复发，避免刷钱。
+
+    判据是 ``eb_granted`` 标记而不是「当前余额是否为 0」——玩家把钱花光后
+    余额也是 0，用余额判断会导致每次建卡/迁移都补发 500。
+    """
+    st = state(card)
+    if int(st.get("eb_granted") or 0):
+        return int(st.get("eb") or 0)
+    st["eb"] = int(st.get("eb") or 0) + int(amount)
+    st["eb_granted"] = int(amount)
+    return st["eb"]
+
+
+def migrate_starting_eb(cards: list[dict]) -> list[str]:
+    """老库迁移：给本轮之前建的卡补发一次起始资金。
+
+    ``cards`` 是 ``roster.members()`` / ``easy_roster.members()`` 那种带
+    ``owner_qq`` 的 dict 列表；返回被补发的卡名（供日志/回执）。**就地**改
+    ``card["state"]``，由调用方负责落库。
+    """
+    touched: list[str] = []
+    for card in cards:
+        st = state(card)
+        if int(st.get("eb_granted") or 0):
+            continue                      # 已经发过
+        if int(st.get("eb") or 0):
+            # 已经有余额（玩家自己挣过）→ 只打标记，不补钱
+            st["eb_granted"] = int(st["eb"])
+            continue
+        st["eb"] = STARTING_EB
+        st["eb_granted"] = STARTING_EB
+        touched.append(str(card.get("name") or card.get("owner_qq") or "无名"))
+    return touched
 
 
 def favors(card: dict) -> list[dict]:

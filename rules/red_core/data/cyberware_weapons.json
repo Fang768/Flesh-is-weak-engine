@@ -1,0 +1,121 @@
+{
+ "_meta": {
+  "source": "rules/red_core/raw/full.txt:9698-10500（赛博组件表）+ :14976-15027（近战武器档位表）",
+  "melee_tiers": {
+   "轻型": {"damage": "1D6", "rof": 2, "conceal": true, "price": 50, "line": 14987},
+   "中型": {"damage": "2D6", "rof": 2, "conceal": false, "price": 50, "line": 14997},
+   "重型": {"damage": "3D6", "rof": 2, "conceal": false, "price": 100, "line": 15007},
+   "超重型": {"damage": "4D6", "rof": 1, "conceal": false, "price": 500, "line": 15017}
+  },
+  "note": "义体武器按档位取伤害（full.txt:14976-15027）。藏匿：书里写明「能够被藏匿」的才为 true，弹出式武器一律能藏（:10265/:10282）。「约定」：义体武器覆盖近战技能的默认 2D6，不叠加。"
+ },
+ "items": {
+  "赛博大蛇": {
+   "tier": "超重型",
+   "conceal": true,
+   "skill": "近战武器",
+   "note": "安装于食道中，使用时从口中爬出，视为超重型近战武器，能够被藏匿（full.txt:10096-10100）"
+  },
+  "吸血鬼尖牙": {
+   "tier": "轻型",
+   "conceal": true,
+   "skill": "近战武器",
+   "poison": true,
+   "note": "优质轻型近战武器，安装于口腔里，能够被藏匿；可附加毒素以及生物毒素（full.txt:10146-10152）"
+  },
+  "金刚狼爪": {
+   "tier": "重型",
+   "conceal": true,
+   "skill": "近战武器",
+   "note": "指节间隙伸出长爪，视为重型近战武器，能够被藏匿（full.txt:10345-10351）"
+  },
+  "开膛手": {
+   "tier": "中型",
+   "conceal": true,
+   "skill": "近战武器",
+   "note": "指尖伸出的碳玻璃爪，视作中型近战武器，能够被藏匿（full.txt:10293-10299）"
+  },
+  "大指虎": {
+   "tier": "中型",
+   "conceal": true,
+   "skill": "近战武器",
+   "note": "指节附加金属甲，视为中型近战武器，能够被藏匿（full.txt:10224-10230）"
+  },
+  "刮刮乐": {
+   "tier": "轻型",
+   "conceal": true,
+   "skill": "近战武器",
+   "note": "碳玻璃指甲，轻型近战武器，能够被藏匿（full.txt:10300-10307）"
+  },
+  "剃刀足": {
+   "tier": "轻型",
+   "conceal": true,
+   "skill": "近战武器",
+   "note": "足部安装刀刃，视为轻型近战武器，能够被藏匿（full.txt:10400-10406）"
+  },
+  "“切削通”": {
+   "tier": "中型",
+   "conceal": true,
+   "skill": "近战武器",
+   "note": "大拇指的单分子鞭，视作中型近战武器，能够被藏匿（full.txt:10315-10322）"
+  },
+  "射镖枪": {
+   "tier": null,
+   "conceal": true,
+   "skill": "手枪",
+   "damage": "1D6",
+   "note": "义眼中秘密安装的单发镖枪（full.txt:9892-9898）。书里没给档位，按「单发隐蔽射击」取 1D6，标「约定」"
+  },
+  "弹出式近战武器": {
+   "tier": "依赖",
+   "conceal": true,
+   "skill": "近战武器",
+   "note": "任何轻型/中型/重型武器都能装进赛博手臂；**即使通常无法藏匿的也能藏**（full.txt:10261-10269）。实际档位由玩家装的武器决定，未指定按中型 2D6"
+  },
+  "弹出式远程武器": {
+   "tier": null,
+   "conceal": true,
+   "skill": "手枪",
+   "damage": "2D6",
+   "note": "任何单手持远程武器都能装进赛博手臂，能够被藏匿（full.txt:10278-10286）。未指定具体枪时按手枪 2D6"
+  },
+  "弹出式榴弹发射器": {
+   "tier": null,
+   "conceal": true,
+   "skill": "重武器",
+   "damage": null,
+   "grenade": true,
+   "note": "单发榴弹发射器，能被隐匿（full.txt:10253-10260）；伤害走手榴弹 6D6 结算，不按档位"
+  },
+  "弹出式盾牌": {
+   "tier": null,
+   "conceal": true,
+   "skill": null,
+   "shield": true,
+   "note": "防弹盾牌，能够被藏匿，耐久归零时被替换（full.txt:10270-10277）；不是攻击武器"
+  },
+  "皮下握把": {
+   "tier": null,
+   "conceal": true,
+   "skill": null,
+   "smartgun": true,
+   "note": "无需插入接口即可使用智能枪械，需神经链路（full.txt:10323-10329）；是能力不是武器"
+  },
+  "隐藏枪套": {
+   "tier": null,
+   "conceal": true,
+   "skill": null,
+   "holster": true,
+   "note": "能够在体内藏匿武器（full.txt:10162-10166）；是藏匿通道不是武器",
+   "conceal_bonus": 2
+  },
+  "皮下口袋": {
+   "tier": null,
+   "conceal": true,
+   "skill": null,
+   "pocket": true,
+   "note": "皮下 5×10cm 口袋，配真皮拉链（full.txt:10180-10184）；藏小物件，不是武器",
+   "conceal_bonus": 1
+  }
+ }
+}

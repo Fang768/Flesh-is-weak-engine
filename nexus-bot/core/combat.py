@@ -33,7 +33,8 @@ from pathlib import Path
 import sqlite3
 from dataclasses import dataclass, field
 
-from cyberpunk import cyber_bonus, dice, easy
+from cyberpunk import ammo_effect, cyber_bonus, cyber_weapon, dice
+from cyberpunk import easy as easy_rules
 from cyberpunk.crit import SERIOUS_EXTRA_DAMAGE, SERIOUS_TRIGGER_SIXES
 from cyberpunk.damage import roll_dice_full as _roll_dice_full
 from core import easy_roster, roster
@@ -168,8 +169,9 @@ AMMO_TYPES = {
     "催泪弹": "仅榴弹；不过伤害，改过 DV13，失败吃眼部受损。",
 }
 
-#: 「约定」：这些弹种书里写「攻击不造成任何伤害，改成过一次 DV 检定」。
-#: 本引擎没有通用的「命中后检定」通道 → 先不结算，只把提示给到玩家。
+#: 历史常量：这批弹种书里写「攻击不造成任何伤害，改成过一次 DV 检定」。
+#: **2026-11-10 起已由 `cyberpunk/ammo_effect.py` 真正结算**（命中后改投检定），
+#: 此集合仅保留给老测试/外部引用，内部不再使用。
 AMMO_CHECK_ONLY = {
     "生物毒素弹", "EMP 弹", "闪光弹", "毒气弹", "麻醉弹", "催泪弹",
 }
@@ -285,6 +287,151 @@ def _ammo_note(me: "Combatant", *, melee: bool) -> str:
     return f"（{kind}：{text}）"
 
 
+def _is_mechanical(target: "Combatant") -> bool:
+    """纯机械目标不吃「打到肉」的效果。
+
+    书里原文（``full.txt:698-700`` FAQ）：
+      「我们用这个指代非无机物，**无人机和完全化赛博格不视为肉类**。
+        当我们提到『肉』这个词时针对某些部位时（例如催泪瓦斯影响肉眼），
+        我们就要看看这个部位是否进行了赛博改造。」
+
+    所以判定分两层：
+    1. 明显机械的敌人（炮塔/无人机/机器人）→ 直接免疫；
+    2. 完全赛博化的目标（全身义体）→ 也免疫。
+    「约定」：第 2 层用「装了外壳/义肢类义体且无肉手臂」近似，本引擎没有
+    完整的「全身改造度」字段，所以只对明确标了机械标签的生效。
+    """
+    words = ("机械", "炮塔", "无人机", "机器人", "自动炮塔", "turret", "drone")
+    tags = " ".join(str(t) for t in (target.tags or ())) + " " + str(target.name)
+    return any(w in tags for w in words)
+
+
+def _resolve_poison_on_hit(conn, combat: "Combat", target: "Combatant",
+                           grade: str, roller) -> str:
+    """吸血鬼尖牙附毒的结算（``full.txt:10148-10150`` + 毒素表 ``:15358-15367``）。
+
+    毒素档位与 DV（``:15359-15367``）：
+    轻 DV11 / 强 DV13 / 致命 DV15，失败都是**直接 HP 伤害**（护甲不削减）。
+    「约定」：书里没写尖牙附哪一档，默认「强」（DV13，2D6）。
+    """
+    POISON_TABLE = {"轻": (11, "1D6"), "强": (13, "2D6"), "致命": (15, "3D6")}
+    dv, dice_spec = POISON_TABLE.get(str(grade), POISON_TABLE["强"])
+    if _is_mechanical(target):
+        return f"  {target.name}不是血肉之躯，毒素无效。"
+    stat_value = max(1, int(target.body))
+    level = max(0, int(target.body) - 2)
+    natural = roller.roll(10)
+    total = natural + stat_value + level
+    head = (f"  ☠ 附毒（{grade}）：{target.name} 过 DV{dv} 折磨&药物耐受 "
+            f"1d10={natural} + WILL{stat_value} + 技能{level} = {total}")
+    if total >= dv:
+        return head + " → 抗住了。"
+    damage, _sixes = _roll_dice_full(roller, dice_spec)
+    _apply_damage_hp(combat, target, damage, [])
+    return head + f" → 中毒！直接 {dice_spec}（不吃护甲）：{damage} 点。"
+
+
+def _target_skill(c: "Combatant", skill: str) -> int:
+    """目标在某个技能上的等价等级（NPC 没有完整技能表，用近似值）。"""
+    name = str(skill or "")
+    if "折磨" in name or "药物" in name:
+        # 书里没给 NPC 的耐受等级；「约定」用 WILL 属性当技能值
+        return max(0, int(c.body) - 2)
+    if "赛博技术" in name:
+        return max(0, int(c.dex) - 2)
+    return max(0, int(c.dodge) // 2)
+
+
+def _target_stat(c: "Combatant", skill: str) -> tuple[str, int]:
+    """检定用的属性与值。"""
+    name = str(skill or "")
+    if "折磨" in name or "药物" in name:
+        return "WILL", max(1, int(c.body))
+    if "赛博技术" in name:
+        return "TECH", max(1, int(c.dex))
+    return "WILL", max(1, int(c.body))
+
+
+def _resolve_post_hit(combat: "Combat", target: "Combatant", ammo_type: str,
+                      roller, *, conn=None) -> str:
+    """命中后的检定结算（``full.txt:26362-26510``）。
+
+    返回给玩家看的多行文本。不扣护甲、不走严重伤势的连带伤害。
+    """
+    spec = ammo_effect.spec_for(ammo_type)
+    if not spec:
+        return "  （这个弹种没有配置效果）"
+    lines: list[str] = []
+
+    # ① 免疫：鼻滤器免毒气、防眩晕免闪光、硬化防护免 EMP
+    category = ammo_effect.immunity_for(ammo_type)
+    if category and target.side == "pc" and conn is not None:
+        tcard = (roster.get(conn, combat.group_id, target.owner_qq)
+                 or easy_roster.get(conn, combat.group_id, target.owner_qq))
+        if tcard:
+            from cyberpunk import immunity
+
+            source = immunity.is_immune(tcard, category)
+            if source:
+                return f"  {source}：免疫{category}，{ammo_type}无效。"
+
+    # ② 「打到肉的人」：纯机械目标不吃生物类效果
+    if spec.get("requires_flesh") and _is_mechanical(target):
+        return f"  {target.name}不是血肉之躯，{ammo_type}对它无效。"
+
+    # ③ 检定
+    skill = str(spec.get("check") or "")
+    dv = int(spec.get("dv") or 13)
+    stat, stat_value = _target_stat(target, skill)
+    level = _target_skill(target, skill)
+    natural = roller.roll(10)
+    total = natural + stat_value + level
+    ok = total >= dv      # 静态 DV 检定：达到即成功（与全引擎一致）
+    lines.append(f"  {target.name} 过「{skill}」DV{dv}："
+                 f"1d10={natural} + {stat}{stat_value} + 技能{level} = {total}"
+                 f" → {'通过' if ok else '失败'}")
+
+    if ok:
+        lines.append("  扛住了，没有额外效果。")
+        return "\n".join(lines)
+
+    fail = spec.get("on_fail") or {}
+    rounds = int(fail.get("rounds") or ammo_effect.ROUNDS_PER_MINUTE)
+
+    # ⑤ 直接伤害（护甲不削减：书里「不会与之产生交互」）
+    if fail.get("damage"):
+        damage, _sixes = _roll_dice_full(roller, str(fail["damage"]))
+        lines.append(f"  失败！直接 {fail['damage']}（不吃护甲）：{damage} 点。")
+        _apply_damage_hp(combat, target, damage, lines)
+
+    # ⑥ 状态：倒地失去意识
+    if fail.get("status") == "unconscious":
+        target.unconscious_until = max(
+            int(getattr(target, "unconscious_until", 0) or 0),
+            int(combat.round) + rounds - 1)
+        lines.append(f"  失败！倒地并失去意识（约 {rounds} 轮 / 1 分钟）。")
+
+    # ⑦ 严重伤势（书里明确「不会因严重伤势受到额外伤害」）
+    for key in fail.get("injury") or ():
+        if key in target.crits:
+            continue
+        target.crits = tuple(target.crits) + (str(key),)
+        from cyberpunk import crit
+
+        injury = crit.BY_KEY.get(key)
+        label = (getattr(injury, "zh", None) or getattr(injury, "label", None)
+                 or str(key))
+        lines.append(f"  失败！获得严重伤势「{label}」（约 {rounds} 轮后自愈）。")
+
+    # ⑧ EMP：赛博组件失效
+    if fail.get("disable_cyberware"):
+        count = int(fail["disable_cyberware"])
+        lines.append(f"  失败！GM 选 {count} 件赛博组件失效 1 分钟"
+                     f"（硬化防护可免疫）。")
+
+    return "\n".join(lines)
+
+
 
 #: 全自动命中数上限（书内页 173）：冲锋枪 3、突击步枪 4。表在地图模块里维护
 AUTOFIRE_MAX_HITS = gridmap.AUTOFIRE_MAX_HITS
@@ -367,6 +514,22 @@ class Combatant:
     ammo_type: str = AMMO_BASE
     #: 开打时的落位提示（不落库；只有 start 用）
     spawn: tuple[int, int] | None = None
+    #: 先攻加值（职业能力「战斗意识 +4」/ 义体「克伦齐科夫 +2」这类），
+    #: 在 start() 掷完先攻后加上。存成独立字段是为了让「先攻」可重复计算、
+    #: 也方便后续做桑德维斯坦的「激活 +3」临时值。
+    init_bonus: int = 0
+    #: 桑德维斯坦激活到哪一轮为止（``combat.round <= cyber_active_until`` 就是生效中）。
+    #: 书 `:9809-9810`「使用行动激活其之后，增加 3 点先攻，并持续 1 分钟」，
+    #: 而 1 轮 ≈ 3 秒（`:11331`）→ 1 分钟 = 20 轮。
+    cyber_active_until: int = 0
+    #: 桑德维斯坦冷却到哪一轮才可再激活（`:9810`「拥有 1 小时冷却」→ 1200 轮）。
+    cyber_cooldown_until: int = 0
+    #: 麻醉弹等造成的「失去意识」到哪一轮为止（`:26470` 失去意识 1 分钟 = 20 轮）。
+    unconscious_until: int = 0
+    #: 痛觉编辑器：忽略严重伤势的负面影响（``full.txt:27821-27825``）。
+    #: ``True`` 时所有由 ``crits`` 派生的惩罚/限制一律按 0/False 处理，
+    #: 但 ``crits`` 列表本身仍保留（伤势还在，只是感觉不到）。
+    pain_editor: bool = False
 
     @property
     def alive(self) -> bool:
@@ -379,7 +542,13 @@ class Combatant:
 
     @property
     def crits_list(self) -> list["CriticalInjury"]:
-        """严重伤势对象列表（按现有 crits 顺序）。"""
+        """严重伤势对象列表（按现有 crits 顺序）。
+
+        痛觉编辑器（``:27821-27825``）把严重伤势的负面影响全部忽略，
+        因此装了就返回空列表——所有派生惩罚/限制自动归零。
+        """
+        if self.pain_editor:
+            return []
         from cyberpunk.crit import BY_KEY
         return [BY_KEY[key] for key in self.crits if key in BY_KEY]
 
@@ -665,6 +834,14 @@ def load(conn, group_id: str) -> Combat | None:
             c.ammo = int(raw_stat.get("ammo", c.ammo))
             c.mag = int(raw_stat.get("mag", c.mag))
             c.ammo_type = str(raw_stat.get("ammo_type") or c.ammo_type)
+            c.init_bonus = int(raw_stat.get("init_bonus", c.init_bonus))
+            c.cyber_active_until = int(
+                raw_stat.get("cyber_active_until", c.cyber_active_until))
+            c.cyber_cooldown_until = int(
+                raw_stat.get("cyber_cooldown_until", c.cyber_cooldown_until))
+            c.unconscious_until = int(
+                raw_stat.get("unconscious_until", c.unconscious_until))
+            c.pain_editor = bool(raw_stat.get("pain_editor", c.pain_editor))
         if c.side == "pc":
             card = roster.get(conn, group_id, c.owner_qq) or easy_roster.get(
                 conn, group_id, c.owner_qq
@@ -675,6 +852,7 @@ def load(conn, group_id: str) -> Combat | None:
                 c.dex = int(st.get("DEX", c.dex))
                 c.dodge = int((card.get("skills") or {}).get("闪避", c.dodge))
                 c.tags = _card_tags(card)
+                c.pain_editor = cyber_bonus.has_cyberware(card, "痛觉编辑器")
         combat.combatants.append(c)
     return combat
 
@@ -686,7 +864,11 @@ def _stat_json(c: Combatant) -> str:
         "wound": c.wound, "range_m": c.range_m, "tags": list(c.tags),
         "mortal": c.mortal, "body": c.body, "death_save_penalty": c.death_save_penalty,
         "crits": list(c.crits), "ammo": c.ammo, "mag": c.mag,
-        "ammo_type": c.ammo_type,
+        "ammo_type": c.ammo_type, "init_bonus": c.init_bonus,
+        "cyber_active_until": c.cyber_active_until,
+        "cyber_cooldown_until": c.cyber_cooldown_until,
+        "unconscious_until": c.unconscious_until,
+        "pain_editor": c.pain_editor,
     }, ensure_ascii=False)
 
 
@@ -1099,15 +1281,25 @@ def start(conn, group_id: str, *, campaign_id: int | None = None, scene: str = "
             combat.map_id = map_id
             _place_combatants(combat, game)
 
-    # 先攻 = 反应 + 1D10；同值重掷（书内页 168）
+    # 先攻 = 反应 + 1D10 + 加值；同值重掷（书内页 168）
+    # 加值来源：简易卡职业能力「战斗意识 +4」（easy.ability_bonus(initiative=True)）
+    # 与义体「克伦齐科夫 先攻 +2」（full.txt:9802-9805）。
     for c in combat.combatants:
-        c.initiative = roller.roll(10) + c.ref
+        if c.side == "pc":
+            bonus = 0
+            pc_card = (easy_roster.get(conn, group_id, c.owner_qq)
+                       or roster.get(conn, group_id, c.owner_qq))
+            if pc_card:
+                bonus, _ = easy_rules.ability_bonus(pc_card, initiative=True)
+                bonus += cyber_bonus.initiative_bonus(pc_card)
+            c.init_bonus = bonus
+        c.initiative = roller.roll(10) + c.ref + c.init_bonus
     for _ in range(20):
         dup = _duplicates(combat.combatants)
         if not dup:
             break
         for c in dup:
-            c.initiative = roller.roll(10) + c.ref
+            c.initiative = roller.roll(10) + c.ref + c.init_bonus
 
     _SLOTS.pop(group_id, None)
     combat.turn_index = 0
@@ -1248,7 +1440,7 @@ def rest(conn, group_id: str) -> str:
             continue
         max_hp = int(data.get("max_hp") or 0)
         if max_hp <= 0:
-            tpl = easy.get(str(card.get("template") or "")) or {}
+            tpl = easy_rules.get(str(card.get("template") or "")) or {}
             max_hp = int(tpl.get("hp") or hp or 30)
         data["hp"] = max_hp
         data["max_hp"] = max_hp
@@ -1402,6 +1594,14 @@ def _noncombat_positions(conn, group_id: str, game, map_id: str) -> dict[str, tu
     return positions
 
 
+def _persist_card(conn, group_id: str, user_id: str, card, is_easy: bool) -> None:
+    """把卡写回（简易卡 / RED 卡各走各的存档）。"""
+    if is_easy:
+        easy_roster.save(conn, group_id, user_id, card, card.get("name"))
+    else:
+        roster.save(conn, group_id, user_id, card)
+
+
 def _save_pos(conn, group_id: str, owner: str, card, is_easy: bool,
               map_id: str, pos: tuple[int, int],
               goal: tuple[int, int] | None) -> None:
@@ -1440,6 +1640,44 @@ def scene_move(conn, group_id: str, user_id: str, text: str) -> str | None:
         return None
     occupied = {p for owner, p in positions.items() if owner != user_id}
 
+    # 飞爪手（非战斗，`:28348-28360`）：发射/收回抓钩；攀爬绳索免 ×2 惩罚。
+    if "抓钩" in body or "飞爪" in body:
+        if not cyber_bonus.has_grapple(card):
+            return f"{card.get('name') or '你'} 身上没装飞爪手（赛博臂改造）。"
+        gstate = dict(card.get("state") or {})
+        if any(w in body for w in ("收回", "收起", "松开", "收绳")):
+            if not gstate.get("grapple"):
+                return "现在没有射出的抓钩。"
+            gstate.pop("grapple", None)
+            card["state"] = gstate
+            _persist_card(conn, group_id, user_id, card, is_easy)
+            return "🪝 收回抓钩（不花费动作，full.txt:28355-28356）。"
+        target = None
+        found = re.search(r"(\d+)\s*[,， ]\s*(\d+)", body)
+        if found:
+            target = (int(found.group(1)), int(found.group(2)))
+        else:
+            cover = next((c for c in game.covers
+                          if (c.name in body or c.id in body) and c.alive), None)
+            if cover is not None:
+                target = (cover.x, cover.y)
+        if target is None:
+            names = "、".join(c.name for c in game.covers if c.alive)
+            return (f"抓钩钉在哪？说掩体名（{names}）或坐标。"
+                    f"只能在 {cyber_bonus.GRAPPLE_RANGE_M} 米内的厚实掩体上。")
+        meters = game.meters(start, target)
+        if meters > cyber_bonus.GRAPPLE_RANGE_M:
+            return (f"{meters} 米太远了：飞爪手最远 "
+                    f"{cyber_bonus.GRAPPLE_RANGE_M} 米（full.txt:28350）。")
+        cover_here = game.cover_at(target)
+        if cover_here is None or not cover_here.blocks_los:
+            return "飞爪手只能固定在**厚实掩体**上（低矮的不行，full.txt:28350）。"
+        gstate["grapple"] = {"map": map_id, "x": target[0], "y": target[1]}
+        card["state"] = gstate
+        _persist_card(conn, group_id, user_id, card, is_easy)
+        return (f"🪝 发射抓钩，钉在 ({target[0]},{target[1]}) 的{cover_here.name}上。"
+                f"之后「攀爬绳索」不受移速惩罚（full.txt:28354）。")
+
     goal: tuple[int, int] | None = None
     if "继续走" in body:
         saved = _saved_pos(card, map_id)
@@ -1468,7 +1706,15 @@ def scene_move(conn, group_id: str, user_id: str, text: str) -> str | None:
         return f"({goal[0]},{goal[1]}) 走不过去（{game.terrain_name(goal)}）。"
 
     budget = _move_cells(card)
-    route, used, arrived = game.move(start, goal, budget)
+    # 飞爪手（`:28354`）：有抓钩锚点又是在攀爬 → 无视攀爬移速惩罚（×1）。
+    mode = ("climb" if any(w in body for w in _CLIMB_WORDS)
+            else "jump" if any(w in body for w in _JUMP_WORDS)
+            else "normal")
+    mult = cyber_bonus.move_multiplier(card, mode=mode)
+    if mode == "climb" and (card.get("state") or {}).get("grapple"):
+        mult = 1
+    water = cyber_bonus.water_cost(card)
+    route, used, arrived = game.move(start, goal, budget, mult=mult, water_cost=water)
     if not route:
         return "找不到通往那里的路。"
     pos = route[-1]
@@ -1537,21 +1783,35 @@ def _best_weapon_skill(card) -> str:
     return max(owned, key=lambda s: int(skills.get(s, 0)))
 
 
+def _flatten(value) -> list[str]:
+    """把卡上的一个字段摊成字符串列表（字符串 / 字典 / 列表都认）。"""
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [str(value.get("name") or "")]
+    return [str(item.get("name") or "") if isinstance(item, dict) else str(item)
+            for item in value]
+
+
 def _card_tags(card) -> tuple[str, ...]:
-    """把卡上的装备/改造/特长摊成标签，给修正的 negate_if 做语义匹配。"""
+    """把卡上的装备/改造/特长摊成标签，给修正的 negate_if 做语义匹配。
+
+    RED 卡（``core/roster.get``）把义体存在 ``state["cyber"]``，**顶层没有
+    ``cyber`` 字段**；简易卡则存在顶层 ``cyber``。两边都要摊进来，否则
+    「装了水平阻尼降噪却不免疫尖叫」这种修正对 RED 卡永远失效。
+    """
     if not card:
         return ()
     parts: list[str] = [str(card.get("name") or ""), str(card.get("template") or "")]
     for key in ("gear", "cyber", "weapons", "armor", "perks"):
-        val = card.get(key) or []
-        if isinstance(val, str):
-            parts.append(val)
-        elif isinstance(val, dict):
-            parts.append(str(val.get("name") or ""))
-        else:
-            for item in val:
-                parts.append(str(item.get("name") or "") if isinstance(item, dict)
-                             else str(item))
+        parts.extend(_flatten(card.get(key)))
+    # RED 卡：义体在 state 里（安装后写的是 cyberware_hl 的中文名）
+    state = card.get("state")
+    if isinstance(state, dict):
+        parts.extend(_flatten(state.get("cyber")))
+        parts.extend(_flatten(state.get("gear")))
     return tuple(p for p in parts if p)
 
 
@@ -1605,6 +1865,38 @@ NEGATE_ALIASES: dict[str, tuple[str, ...]] = {
 }
 
 
+def _negate_candidates(token: str) -> tuple[str, ...]:
+    """一个 ``negate_if`` 词元能对应的所有义体写法。
+
+    两种写法都认（``cyberpunk/immunity.py``）：
+
+    * 写**义体名**（``"水平阻尼降噪"``）→ 展开成它的全部别名；
+    * 写**免疫类别**（``"闪光"``、``"毒气"``）→ 展开成所有提供该免疫的义体名。
+
+    这样剧本作者不用记义体全名，写类别就够。
+    """
+    from cyberpunk import immunity
+
+    name = str(token).strip()
+    if not name:
+        return ()
+    # 别名表优先（历史数据用的就是这些写法）
+    if name in NEGATE_ALIASES:
+        return tuple(NEGATE_ALIASES[name])
+    table_aliases = immunity.aliases()
+    if name in table_aliases:
+        return tuple([name, *table_aliases[name]])
+    # 当类别用：找出所有免疫这个词的义体
+    providers = [zh for zh, meta in immunity.items().items()
+                 if name in (meta.get("immunes") or [])]
+    if providers:
+        extra: list[str] = []
+        for zh in providers:
+            extra.extend(table_aliases.get(zh, ()))
+        return tuple([name, *providers, *extra])
+    return (name,)
+
+
 def _negated(entry: dict, actor: Combatant | None) -> bool:
     if actor is None:
         return False
@@ -1613,10 +1905,7 @@ def _negated(entry: dict, actor: Combatant | None) -> bool:
         tokens = [tokens]
     tags = " ".join(actor.tags)
     for token in tokens:
-        name = str(token).strip()
-        if not name:
-            continue
-        if any(alias in tags for alias in NEGATE_ALIASES.get(name, (name,))):
+        if any(alias in tags for alias in _negate_candidates(token)):
             return True
     return False
 
@@ -1828,14 +2117,17 @@ def maybe_serious_injury(combat: Combat, c: Combatant, sixes: int, *,
     if inj is None:
         return
     c.crits = c.crits + (inj.key,)
-    if inj.death_penalty:
+    # 痛觉编辑器（full.txt:27821-27825）「忽略严重伤势的负面影响」：
+    # 伤势照记、5 点即时伤害照吃（那是受伤本身），但**持续惩罚与限制**全部跳过。
+    if not c.pain_editor and inj.death_penalty:
         c.death_save_penalty += inj.death_penalty
     # 状态类伤势：写成「回合号」，因为 Slot.reset() 每轮清零布尔
     slot = _slots(combat)[c.owner_qq]
-    if inj.no_action_next:
-        slot.no_action_round = combat.round + 1
-    if inj.no_move_next:
-        slot.no_move_round = combat.round + 1
+    if not c.pain_editor:
+        if inj.no_action_next:
+            slot.no_action_round = combat.round + 1
+        if inj.no_move_next:
+            slot.no_move_round = combat.round + 1
     # 5 点额外伤害：不削护甲、不受部位倍率
     extra = crit.SERIOUS_EXTRA_DAMAGE
     c.hp = max(0, c.hp - extra)
@@ -2449,20 +2741,11 @@ def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
     mod_note = modifier_text(combat, me)
     #: 特殊弹种的提示（基础弹药为空串）
     ammo_note = _ammo_note(me, melee=melee)
-    if ammo_note and (me.ammo_type in AMMO_CHECK_ONLY):
-        # 书里这几类弹「攻击不造成任何伤害，改成过一次 DV 检定」——
-        # 本引擎没有通用的「命中后检定」通道，先诚实说明（「约定」）。
-        slot.action = True
-        if not melee:
-            _spend_round(me, shoot_weapon)
-        lines.append(f"{me.name} 打出{me.ammo_type}{ammo_note}")
-        lines.append("  本引擎还没做「命中后检定」通道，这一枪按不结算处理"
-                     "（见 docs/进度.md 的约定）。")
-        _sync_pc_hp(conn, combat, me)
-        _advance(conn, combat, roller, lines)
-        _save(conn, combat)
-        return "\n".join(lines)
-    if ammo_note:
+    # 「攻击不造成伤害、命中后改过检定」的弹种（full.txt:26362-26510）。
+    # 注意：**命中判定照常做**——书里说的是「被你的攻击打到肉的人」要通过检定，
+    # 所以先确认打中，再改走检定流程（早期版本直接跳过命中判定，是错的）。
+    check_ammo = (not melee) and ammo_effect.is_check_ammo(me.ammo_type)
+    if ammo_note and not check_ammo:
         lines.append(f"{me.name} 用的是{me.ammo_type}{ammo_note}")
 
     # 射速（ROF）：一次攻击动作可以打两下（full.txt:14477-14499）。
@@ -2522,8 +2805,34 @@ def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
             continue
 
         hit_any = True
+        # 检定类弹种：命中后**不结算伤害**，改投一次检定（full.txt:26362-26510）。
+        # 书里：「你的攻击不会造成任何伤害。任何被你的攻击打到肉的人必须通过
+        # 一个 DVxx 的折磨&药物耐受检定」——所以这一步在命中之后、伤害之前。
+        if check_ammo:
+            lines.append(f"  {me.ammo_type}命中：不造成常规伤害，改过检定。")
+            lines.append(_resolve_post_hit(combat, target, me.ammo_type, roller,
+                                           conn=conn))
+            if shoot_weapon and shoot_weapon not in NO_RELOAD_WEAPONS:
+                lines.append(f"弹匣剩 {me.rounds_left(shoot_weapon)} 发。")
+            continue
+        # 义体武器覆盖：装了义体武器就用它的档位骰，不叠技能默认值
+        # （档位见 full.txt:14976-15027；弹出式武器按中型 2D6 兜底）。
+        cyber_dmg, cyber_weapon_note = (
+            cyber_weapon.damage_override(card, skill=skill_name, weapon=weapon)
+            if (card is not None and melee) else (None, "")
+        )
         damage, sixes = _roll_dice_full(
-            roller, WEAPON_DAMAGE.get(skill_name, "2D6"))
+            roller, cyber_dmg or WEAPON_DAMAGE.get(skill_name, "2D6"))
+        if cyber_weapon_note:
+            lines.append(f"  {cyber_weapon_note}：{damage} 点。")
+        # 附毒：吸血鬼尖牙「可以对其附加毒素以及生物毒素」（full.txt:10148-10150）。
+        # 走毒素表（:15359-15367）：轻 DV11 / 强 DV13 / 致命 DV15，直接 HP 伤害。
+        poison_grade = (cyber_weapon.poison_of(card, weapon=weapon)
+                        if (card is not None and melee) else "")
+        poison_line = ""
+        if poison_grade:
+            poison_line = _resolve_poison_on_hit(
+                conn, combat, target, poison_grade, roller)
         sp = (target.effective_sp + 1) // 2 if melee else target.effective_sp
         taken = max(0, damage - sp)
         was_mortal = target.mortal and target.hp >= 1
@@ -2532,6 +2841,9 @@ def attack(conn, group_id: str, actor_qq: str, target_hint: str = "", *,
         if taken and not rubber:
             # 穿甲弹：护甲被穿透时 SP 减值 1 → 2（full.txt:26730-26731）
             target.sp_wear += _armor_step(me, target, melee=melee)
+        # 附毒结算：用攻击后追加一段（和主伤害分开算，书里没说要替代伤害）
+        if poison_line:
+            lines.append(poison_line)
         if rubber and target.hp > 1:
             taken = min(taken, target.hp - 1)
         note = ""
@@ -2758,6 +3070,13 @@ def net_action(conn, group_id: str, actor_qq: str, text: str, *,
             return None
         skill_name = str(access.get("skill") or "电子/安全技术")
         dv = int(access.get("dv") or 8)
+        # 网行必须靠交互接口（full.txt:871「插上交互接口」、:2173「用交互接口
+        # 进入网络建筑」）。没装就插不进去——这是 C 类里唯一有硬规则的。
+        net_card = (roster.get(conn, group_id, me.owner_qq)
+                    or easy_roster.get(conn, group_id, me.owner_qq))
+        if net_card is not None and not cyber_bonus.has_cyberware(net_card, "交互接口"):
+            return (f"🔌 {me.name} 没有交互接口（Interface Plug），插不进网络——"
+                    f"先装一个（full.txt:871、:2173）。")
         total = _net_total(conn, group_id, combat, me, skill_name, roller)
         slot.action = True
         name = str(access.get("name") or "接入点")
@@ -2822,10 +3141,79 @@ def net_action(conn, group_id: str, actor_qq: str, text: str, *,
 # ── 其他动作（书内页 168 的动作简表）──────────────────────────
 
 _MOVE_WORDS = ("移动", "走位", "找掩体", "换位置")
+#: 攀爬 / 跳跃是「移动方式」，每格花费 ×2（full.txt:14488）。
+#: 装了攀爬脚/跳跃增强则各自降回 ×1（:10382 / :10388）。
+_CLIMB_WORDS = ("攀爬", "翻越", "翻墙", "爬墙", "爬上去", "爬上", "攀上")
+_JUMP_WORDS = ("跳跃", "跳到", "跳过去", "跳上", "跳下", "跳远", "助跑跳")
 _RELOAD_WORDS = ("装填", "换弹", "换弹匣", "上弹")
 _GETUP_WORDS = ("起身", "爬起来")
 _DELAY_WORDS = ("延迟", "等一等", "过", "跳过", "结束回合")
 _RUN_WORDS = ("跑", "冲刺")
+#: 桑德维斯坦激活（full.txt:9807-9812）
+_ACTIVATE_WORDS = ("激活桑德维斯坦", "开桑德维斯坦", "启动桑德维斯坦",
+                   "启用桑德维斯坦", "激活加速", "开加速")
+
+
+# ── 桑德维斯坦：动作激活的加速组件 ────────────────────────────
+#
+# 规则原文 ``full.txt:9807-9812``：
+#   「加速组件。当使用行动激活其之后，增加 3 点先攻，并持续 1 分钟。
+#     拥有 1 小时冷却。加速组件只能在身上安装其中一种。需要神经链路。」
+#
+# 时间换算 ``full.txt:11327-11331``：「每一个 TURNS（回合）大概有 3 秒钟…
+# 一个 ROUND（轮次）也是差不多 3 秒钟」→ 1 分钟 = 20 轮，1 小时 = 1200 轮。
+SANDY_INITIATIVE = 3
+SANDY_DURATION_ROUNDS = 20      # 1 分钟 ÷ 3 秒
+SANDY_COOLDOWN_ROUNDS = 1200    # 1 小时 ÷ 3 秒
+SANDY_NAME = "桑德维斯坦"
+
+
+def sandy_active(c: "Combatant", combat: "Combat") -> bool:
+    """桑德维斯坦此刻是否生效。"""
+    return int(c.cyber_active_until or 0) >= int(combat.round or 0) > 0
+
+
+def sandy_on_cooldown(c: "Combatant", combat: "Combat") -> bool:
+    return int(c.cyber_cooldown_until or 0) > int(combat.round or 0)
+
+
+def has_sandy(conn, group_id: str, owner_qq: str) -> bool:
+    """这张卡装没装桑德维斯坦。"""
+    from cyberpunk import cyber_bonus
+
+    card = roster.get(conn, group_id, owner_qq) or easy_roster.get(
+        conn, group_id, owner_qq)
+    return cyber_bonus.has_cyberware(card, SANDY_NAME) if card else False
+
+
+def looks_like_activate(body: str) -> bool:
+    text = (body or "").strip()
+    return any(w in text for w in _ACTIVATE_WORDS)
+
+
+def activate_sandevistan(combat: "Combat", me: "Combatant",
+                         slot: "Slot") -> str:
+    """花一个动作激活桑德维斯坦：先攻 +3、持续 20 轮、冷却 1200 轮。"""
+    if sandy_active(me, combat):
+        left = int(me.cyber_active_until) - int(combat.round) + 1
+        return (f"{me.name} 的{SANDY_NAME}已经开着"
+                f"（还剩约 {left} 轮，约 {left * 3} 秒）。")
+    if sandy_on_cooldown(me, combat):
+        left = int(me.cyber_cooldown_until) - int(combat.round)
+        return (f"{me.name} 的{SANDY_NAME}还在冷却，"
+                f"还要约 {left} 轮（约 {left * 3 // 60} 分钟）才能再开。")
+    if slot.action:
+        return "这回合的动作已经用过了。"
+
+    slot.action = True
+    me.cyber_active_until = int(combat.round) + SANDY_DURATION_ROUNDS - 1
+    me.cyber_cooldown_until = int(combat.round) + SANDY_COOLDOWN_ROUNDS
+    # 先攻是队列排序依据，立刻加，让本轮之后的排位都变
+    me.initiative += SANDY_INITIATIVE
+    me.init_bonus += SANDY_INITIATIVE
+    return (f"⚡ {me.name} 激活了{SANDY_NAME}：先攻 +{SANDY_INITIATIVE}"
+            f"（现为 {me.initiative}），持续 1 分钟（{SANDY_DURATION_ROUNDS} 轮），"
+            f"冷却 1 小时。")
 
 
 def _after_walk(me: "Combatant", used: int, slot: "Slot", combat: Combat,
@@ -2867,12 +3255,29 @@ def act(conn, group_id: str, user_id: str, text: str, *,
     roller = roller or dice.RandomRoller()
     slot = _slots(combat)[me.owner_qq]
     lines: list[str] = []
+    #: 「跑」拿到额外移动时要保留回合（不立刻推进），见 _RUN_WORDS 分支。
+    keep_turn = False
 
     # 脊柱受伤：下个回合只能用移动动作（full.txt:15856）
     moving = (any(w in body for w in _MOVE_WORDS)
+              or any(w in body for w in _CLIMB_WORDS)
+              or any(w in body for w in _JUMP_WORDS)
               or (any(w in body for w in _RUN_WORDS) and body.startswith("跑")))
     if not moving and slot.no_action_round == combat.round:
         return f"{me.name} 脊柱受伤：这一回合用不了其他动作，只能移动。"
+
+    # 桑德维斯坦激活（full.txt:9807-9812）：一个动作，先攻 +3 / 20 轮 / 冷却 1200 轮
+    if looks_like_activate(body):
+        if not has_sandy(conn, group_id, me.owner_qq):
+            return (f"{me.name} 身上没装{SANDY_NAME}。"
+                    f"（它需要神经链路，而且和克伦齐科夫互斥，只能装一种。）")
+        line = activate_sandevistan(combat, me, slot)
+        # 激活是「一个动作」——和其他动作一样要推进回合，
+        # 否则激活完还能接着再动一次（早期版本漏了这句）。
+        if slot.action and "已经开着" not in line and "冷却" not in line:
+            _advance(conn, combat, dice.RandomRoller(), [])
+        _save(conn, combat)
+        return line
 
     if any(w in body for w in _RELOAD_WORDS):
         if slot.action:
@@ -2923,8 +3328,85 @@ def act(conn, group_id: str, user_id: str, text: str, *,
             return "这回合已经跑过了。"
         slot.action = True
         slot.extra_move = True
+        run_card = easy_roster.get(conn, group_id, me.owner_qq) or roster.get(
+            conn, group_id, me.owner_qq)
+        skates = cyber_bonus.run_bonus_cells(run_card) if run_card else 0
         lines.append(f"🏃 {me.name} 跑起来：本轮多一次移动。")
-    elif any(w in body for w in _MOVE_WORDS):
+        if skates:
+            lines.append(f"  轮滑脚：这次奔跑的移动 +{skates * 2} 米（+{skates} 格，"
+                         "full.txt:10395）。")
+        # 「跑」是给一次**额外移动**的动作（书内页 168）：动作已用，但回合
+        # 不能马上推进，否则下一次移动会被算进下一轮、额外移动被 reset 清掉。
+        # 这里先保留回合，等玩家用掉额外移动（移动分支结尾会 _advance）。
+        keep_turn = True
+    elif any(w in body for w in ("换臂", "换手臂", "换条手臂", "交换手臂")):
+        # 快拆挂扣：一个动作换臂（取下当前 + 从快拆槽取另一条，合并成一个动作）
+        if slot.action:
+            return "这回合的动作已经用过了。"
+        from core import cyber_flow
+        reply = cyber_flow.swap_arm(conn, group_id, user_id, roller=roller)
+        if "换好了" not in reply:
+            return reply              # 失败不消耗动作
+        slot.action = True
+        lines.append(reply)
+    elif "抓钩" in body or "飞爪" in body:
+        card_now = (easy_roster.get(conn, group_id, me.owner_qq)
+                    or roster.get(conn, group_id, me.owner_qq))
+        if not (card_now and cyber_bonus.has_grapple(card_now)):
+            return f"{me.name} 身上没装飞爪手（赛博臂改造，full.txt:28348）。"
+        state_now = dict((card_now.get("state") or {}))
+        if any(w in body for w in ("收回", "收起", "松开", "收绳")):
+            # 收回绳索不花费动作（`:28355-28356`）。
+            if not state_now.get("grapple"):
+                return f"{me.name} 现在没有射出的抓钩。"
+            state_now.pop("grapple", None)
+            card_now["state"] = state_now
+            if easy_roster.get(conn, group_id, me.owner_qq):
+                easy_roster.save(conn, group_id, me.owner_qq, card_now, card_now.get("name"))
+            else:
+                roster.save(conn, group_id, me.owner_qq, card_now)
+            lines.append(f"🪝 {me.name} 收回抓钩（不花费动作）。")
+        else:
+            # 发射抓钩 = 一个动作（`:28349`）。
+            if slot.action:
+                return "这回合的动作已经用过了。"
+            game = _map_for(combat)
+            if game is None:
+                return f"{me.name} 这里没有网格地图，抓钩只能靠 GM 叙事判定。"
+            target = None
+            found = re.search(r"(\d+)\s*[,， ]\s*(\d+)", body)
+            if found:
+                target = (int(found.group(1)), int(found.group(2)))
+            else:
+                cover = next((c for c in game.covers
+                              if (c.name in body or c.id in body)
+                              and _cover_hp(combat, c) > 0), None)
+                if cover is not None:
+                    target = (cover.x, cover.y)
+            if target is None:
+                names = "、".join(c.name for c in game.covers
+                                 if _cover_hp(combat, c) > 0)
+                return (f"抓钩钉在哪？说掩体名（{names}）或坐标。"
+                        f"只能在 {cyber_bonus.GRAPPLE_RANGE_M} 米内的厚实掩体上。")
+            meters = game.meters((me.x, me.y), target)
+            if meters > cyber_bonus.GRAPPLE_RANGE_M:
+                return (f"{meters} 米太远了：飞爪手最远 "
+                        f"{cyber_bonus.GRAPPLE_RANGE_M} 米（full.txt:28350）。")
+            cover_here = game.cover_at(target, _gone(combat))
+            if cover_here is None or not cover_here.blocks_los:
+                return "飞爪手只能固定在**厚实掩体**上（低矮/已打烂的不行，full.txt:28350）。"
+            slot.action = True
+            state_now["grapple"] = {"map": combat.map_id, "x": target[0], "y": target[1]}
+            card_now["state"] = state_now
+            if easy_roster.get(conn, group_id, me.owner_qq):
+                easy_roster.save(conn, group_id, me.owner_qq, card_now, card_now.get("name"))
+            else:
+                roster.save(conn, group_id, me.owner_qq, card_now)
+            lines.append(f"🪝 {me.name} 花一个动作射出抓钩，钉在 ({target[0]},{target[1]})"
+                         f" 的{cover_here.name}上。之后「攀爬绳索」不受移速惩罚"
+                         f"（full.txt:28354）。")
+            lines.append(f"  抓钩那侧手现在不能拿东西，也不能用它擒拿（full.txt:28359）。")
+    elif any(w in body for w in _MOVE_WORDS + _CLIMB_WORDS + _JUMP_WORDS):
         # 「跑」给的额外移动允许第二次移动（书内页 168：1 移动 + 1 动作）
         if slot.move and not slot.extra_move:
             return "这回合的移动动作已经用过了。"
@@ -2973,22 +3455,47 @@ def act(conn, group_id: str, user_id: str, text: str, *,
                 return f"({goal[0]},{goal[1]}) 走不过去（{game.terrain_name(goal)}）。"
             budget = _move_budget(me, easy_roster.get(conn, group_id, me.owner_qq)
                                  or roster.get(conn, group_id, me.owner_qq))
-            route, used, arrived = game.move((me.x, me.y), goal, budget, gone)
+            move_card = easy_roster.get(conn, group_id, me.owner_qq) or roster.get(
+                conn, group_id, me.owner_qq)
+            # 移动方式（full.txt:14488）：攀爬 / 跳跃每格花费 ×2；
+            # 攀爬脚（:10382）/ 跳跃增强（:10388）各自豁免回 ×1。
+            mode = ("climb" if any(w in body for w in _CLIMB_WORDS)
+                    else "jump" if any(w in body for w in _JUMP_WORDS)
+                    else "normal")
+            mult = cyber_bonus.move_multiplier(move_card or {}, mode=mode)
+            # 飞爪手（`:28354`）：攀爬抓钩绳索时无视攀爬移速惩罚 → ×1。
+            grapple_note = ""
+            if (mode == "climb" and move_card is not None
+                    and (move_card.get("state") or {}).get("grapple")):
+                mult = 1
+                grapple_note = "（飞爪手绳索：攀爬免移速惩罚）"
+            # 蹼足（:10409）：水格按 1 格算，否则默认 2（游泳 ×2）。
+            water = cyber_bonus.water_cost(move_card or {})
+            # 轮滑脚（:10395）：跑之后的额外移动 +3 格（6 米）。
+            if slot.extra_move and move_card is not None:
+                budget += cyber_bonus.run_bonus_cells(move_card)
+            route, used, arrived = game.move((me.x, me.y), goal, budget, gone,
+                                             mult=mult, water_cost=water)
             if not route:
                 return "找不到通往那里的路。"
             me.x, me.y = route[-1]
             slot.move = True
+            walked = len(route) - 1
             tail = "" if arrived else "（移动力用完，只走到半路）"
-            lines.append(f"👟 {me.name} 移动到 ({me.x},{me.y})，走了 {used} 格{tail}。"
+            mode_note = {"climb": "〔攀爬〕", "jump": "〔跳跃〕"}.get(mode, "")
+            cost_note = f"（攀爬/跳跃按 ×{mult} 计，消耗 {used}）" if mult > 1 else ""
+            lines.append(f"👟 {me.name}{mode_note} 移动到 ({me.x},{me.y})，走了 {walked} 格{tail}{cost_note}。"
                          f"{game.describe((me.x, me.y), gone)}（MOVE {budget} → 一次最多 {budget * 2} 米）")
+            if grapple_note:
+                lines.append(f"  {grapple_note}")
             if slot.must_cover:
                 slot.must_cover = False
                 lines.append("  掩体挡住了射界，压制解除（full.txt:14911-14914）。")
-            _after_walk(me, used, slot, combat, lines)
+            _after_walk(me, walked, slot, combat, lines)
     else:
         return None
 
-    if slot.action:
+    if slot.action and not keep_turn:
         _advance(conn, combat, roller, lines)
     _save(conn, combat)
     return "\n".join(lines)

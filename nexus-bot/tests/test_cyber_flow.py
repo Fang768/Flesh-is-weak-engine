@@ -32,6 +32,13 @@ def conn_fixture():
 
 def _pc(conn, qq="u1", name="阿飞", template="独狼"):
     roster.save(conn, GID, qq, roster.build(template=template, name=name))
+    # 这些用例测的是「人性损失」，会反复装高价义体（皮下护甲 1000 EB/次）。
+    # 给足资金，让钱不成为干扰项；经济性由 test_eb_economy.py 单独覆盖。
+    from core import growth
+
+    card = roster.get(conn, GID, qq)
+    growth.grant_eb(card, 10000)
+    roster.save(conn, GID, qq, card)
     return roster.get(conn, GID, qq)
 
 
@@ -145,7 +152,8 @@ def test_installing_the_same_item_twice_costs_twice():
     second = install(conn, GID, "u1", "安装 赛博义眼", roller=_roll(5, 5))
     assert "50 → 40" in first
     assert "40 → 30" in second
-    assert roster.get(conn, GID, "u1")["state"]["cyber"].count("赛博义眼") == 2
+    from cyberpunk import cyber_bonus
+    assert cyber_bonus.installed_names(roster.get(conn, GID, "u1")).count("赛博义眼") == 2
 
 
 def test_emp_never_drops_below_one():
@@ -193,6 +201,7 @@ def test_quote_does_not_install():
 def test_easy_card_also_loses_humanity():
     conn = conn_fixture()
     template = dict(easy.templates()[0])
+    template.setdefault("state", {})["eb"] = 5000  # 给足钱，这条只测人性
     easy_roster.save(conn, GID, "e1", template, "肆拾")
     before = int(template["stats"]["EMP"]) * 10
     text = install(conn, GID, "e1", "安装 赛博义眼", roller=_roll(5, 5))

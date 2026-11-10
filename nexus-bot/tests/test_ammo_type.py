@@ -210,16 +210,48 @@ def test_rubber_notes_in_the_reply():
     assert "橡胶弹" in text
 
 
-# ---------- 「命中后检定」类弹种：先诚实不结算 ----------
+# ---------- 「命中后检定」类弹种：2026-11-10 起真正结算 ----------
+#
+# 书 `:26442-26450`：攻击不造成常规伤害，改过 DV13 折磨&药物耐受，失败直接 2d6。
+# 早期版本只提示不结算，现在由 cyberpunk/ammo_effect.py 落地。
 
 
-def test_check_only_ammo_does_not_deal_damage():
+def test_check_only_ammo_does_no_ordinary_damage():
+    """检定类弹种不按「伤害减护甲」结算常规伤害。"""
+    conn = _conn()
+    _fight(conn)
+    text = _shoot(conn, ammo_type="毒气弹", rolls=[10, 3, 3, 1, 1])
+    assert "不造成常规伤害" in text
+    assert "命中后改过检定" in text or "改过检定" in text
+
+
+def test_check_only_ammo_resolves_the_check():
+    """命中后要真的过检定，并把结果写进回执。"""
+    conn = _conn()
+    _fight(conn)
+    text = _shoot(conn, ammo_type="毒气弹", rolls=[10, 3, 3, 1, 1])
+    assert "折磨&药物耐受" in text and "DV13" in text
+
+
+def test_check_only_ammo_no_damage_on_success():
+    """检定通过 → 不掉血。"""
     conn = _conn()
     _, _, foe = _fight(conn)
-    before = foe.hp
-    text = _shoot(conn, ammo_type="毒气弹", rolls=[10, 3, 3, 1, 1])
-    assert "还没做「命中后检定」通道" in text
+    before = _foe(conn).hp
+    # 命中骰 10，然后目标检定骰 10（通过）
+    text = _shoot(conn, ammo_type="毒气弹", rolls=[10, 10, 1, 1])
+    assert "扛住了" in text
     assert _foe(conn).hp == before
+
+
+def test_check_only_ammo_damages_on_failure():
+    """检定失败 → 直接伤害（不吃护甲）。"""
+    conn = _conn()
+    _, _, foe = _fight(conn)
+    before = _foe(conn).hp
+    text = _shoot(conn, ammo_type="毒气弹", rolls=[10, 1, 1, 1, 1])
+    assert "失败" in text
+    assert _foe(conn).hp < before
 
 
 def test_check_only_ammo_still_spends_the_round():

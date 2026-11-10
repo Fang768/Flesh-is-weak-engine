@@ -17,6 +17,19 @@ from pathlib import Path
 TEMPLATES_FILE = (Path(__file__).resolve().parents[2]
                   / "rules" / "cpr_easy" / "data" / "easy_templates.json")
 
+
+def _cyber_names(items) -> list[str]:
+    """义体列表 → 名字列表（兼容旧字符串与新实例记录 dict）。"""
+    out = []
+    for x in items or []:
+        if isinstance(x, dict):
+            nm = str(x.get("name") or "")
+            if nm:
+                out.append(nm)
+        elif x:
+            out.append(str(x))
+    return out
+
 STAT_ZH = {
     "INT": "智力", "REF": "反应", "DEX": "敏捷", "TECH": "技术", "COOL": "镇定",
     "WILL": "意志", "LUCK": "幸运", "MOVE": "移动", "BODY": "体魄", "EMP": "共情",
@@ -77,7 +90,7 @@ def format_card(t: dict) -> str:
         "武器：" + "；".join(t["weapons"]),
         f"技能（部分）：{skills} …",
         f"职业能力：{t['ability']}",
-        f"义体：{'；'.join(t['cyber'])}",
+        f"义体：{'；'.join(_cyber_names(t['cyber']))}",
         f"开场钩子：{t['hook']}",
     ]
     return chr(10).join(lines)
@@ -101,7 +114,17 @@ SKILL_STAT = {
 
 
 def skill_stat(skill: str) -> str | None:
-    """技能 → 属性；英文/片段也认。"""
+    """技能 → 属性。
+
+    **RED 优先**（``rules/red_core/data/skills.json``）：简易卡已把技能名统一成
+    RED 正典，``藏匿&揭示物体`` / ``折磨&药物耐受`` / ``长枪射击`` 这些只在 RED
+    表里。认不出再回退到 Easy Mode 自己那份 42 项表。
+    """
+    from . import skills as red
+
+    found = red.stat_of(skill)
+    if found:
+        return found
     key = (skill or "").strip()
     if key in SKILL_STAT:
         return SKILL_STAT[key]
@@ -112,15 +135,21 @@ def skill_stat(skill: str) -> str | None:
 
 
 def resolve_skill(skill: str, known) -> tuple[str | None, int]:
-    """在卡面技能里找最匹配的一个：先精确，再双向包含，再按属性表反查。
+    """在卡面技能里找最匹配的一个：先精确，再按 RED 正典名归一，再双向包含。
 
     返回 (规范技能名, 等级)；找不到返回 (None, 0)。
     """
+    from . import skills as red
+
     key = (skill or "").strip()
     if not key:
         return None, 0
     if key in known:
         return key, int(known[key])
+    # 玩家可能用 Easy 旧名 / V3 名来问，先折成 RED 正典再看卡上有没有
+    canon = red.canonical(key)
+    if canon in known:
+        return canon, int(known[canon])
     for name in known:
         if key in name or name in key:
             return name, int(known[name])
@@ -128,3 +157,36 @@ def resolve_skill(skill: str, known) -> tuple[str | None, int]:
         if (key in name or name in key) and name in known:
             return name, int(known[name])
     return None, 0
+
+
+def ability_bonus(card: dict, *, skill: str = "",
+                  initiative: bool = False) -> tuple[int, list[str]]:
+    """职业能力加值（``ability_bonus`` 字段，运行时加，**不烘焙进卡面**）。
+
+    简易书里「制造者：电子/安防技术 +4（已计入数据）」「战斗意识：先攻 +4」
+    这类能力，现在拆成字段：技能加值按技能名精确匹配，``先攻`` 是特殊键
+    （只在算先攻时加）。返回 ``(加值合计, 来源说明)``。
+    """
+    from . import skills as red
+
+    table = card.get("ability_bonus") or {}
+    if not isinstance(table, dict) or not table:
+        return 0, []
+    total = 0
+    notes: list[str] = []
+    if initiative:
+        value = int(table.get("先攻") or 0)
+        if value:
+            total += value
+            notes.append(f"职业能力先攻{value:+d}")
+        return total, notes
+    want = red.canonical(skill)
+    for key, raw in table.items():
+        if key == "先攻":
+            continue
+        if want and red.canonical(str(key)) == want:
+            value = int(raw or 0)
+            if value:
+                total += value
+                notes.append(f"职业能力{key}{value:+d}")
+    return total, notes

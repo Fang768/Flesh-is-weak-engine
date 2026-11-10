@@ -54,6 +54,10 @@ class Character:
     #: 运行时生效（``effective_stat`` / ``max_hp`` / ``death_save`` 会叠加上去），
     #: **不写死** ``self.stats``，避免越过 ``validate_stats`` 的 2–10 范围。
     cyber_mod: dict[str, int] = field(default_factory=dict)
+    #: 义体给的**属性下限**（``属性键 → 至少到 X``，如线性框架 体格→12）。
+    #: 与 ``cyber_mod`` 的「加值」不同，这是 ``max(基础+加成, 下限)``；
+    #: 允许 BODY 超过常规上限 10（12/14），所以不再 clamp 到 10。
+    stat_floor: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         validate_stats(self.stats)
@@ -79,6 +83,8 @@ class Character:
         out = dict(self.stats)
         for key, val in self.cyber_mod.items():
             out[key] = _clamp(out.get(key, 5) + val)
+        for key, floor in self.stat_floor.items():
+            out[key] = max(out.get(key, 0), int(floor))
         return out
 
     @property
@@ -86,12 +92,16 @@ class Character:
         return derived(self.effective_stats).hp
 
     def effective_stat(self, key: str) -> int:
-        """属性 + 专长修正（街头门路加到 COOL 上）+ 义体永久加成。"""
+        """属性 + 专长修正（街头门路加到 COOL 上）+ 义体永久加成 + 属性下限。"""
         base = self.stats[key]
         if key == "COOL":
             base += self.perks.get("streetdeal", 0)
         base += self.cyber_mod.get(key, 0)
-        return _clamp(base)
+        value = _clamp(base)
+        floor = self.stat_floor.get(key)
+        if floor is not None:
+            value = max(value, int(floor))
+        return value
 
     def effective_skill(self, skill: str) -> int:
         """技能 + 专长/天赋修正。"""

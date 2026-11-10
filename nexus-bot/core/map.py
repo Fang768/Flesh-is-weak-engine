@@ -142,6 +142,21 @@ class GameMap:
     def cost(self, pos: tuple[int, int]) -> int:
         return TERRAIN_COST.get(self.at(pos), 99)
 
+    def cell_cost(self, pos: tuple[int, int], *, mult: int = 1,
+                  water_cost: int | None = None) -> int:
+        """移动到这一格要花几点移动力。
+
+        * ``mult``：移动方式倍率（规则书 ``full.txt:14488``「游泳，攀爬或者
+          助跑跳，每经过 1m 都要花费 2m 的最大移动距离」→ 攀爬/跳跃传 2）。
+        * ``water_cost``：水格覆盖价（蹼足 → 1；不传就按 ``TERRAIN_COST`` 的 2）。
+        """
+        base = TERRAIN_COST.get(self.at(pos), 99)
+        if base >= 99:
+            return base
+        if self.at(pos) == WATER and water_cost is not None:
+            base = int(water_cost)
+        return base * max(1, int(mult))
+
     def cover_at(self, pos: tuple[int, int], gone: Iterable[str] = ()) -> Cover | None:
         """这一格上的掩体；`gone` 里的（已打烂）不算。"""
         skip = gone if isinstance(gone, (set, frozenset)) else set(gone)
@@ -209,7 +224,8 @@ class GameMap:
 
     # ── 移动 ────────────────────────────────────────────────
     def path(self, start: tuple[int, int], goal: tuple[int, int],
-             gone: Iterable[str] = ()) -> tuple[list[tuple[int, int]], int]:
+             gone: Iterable[str] = (), *, mult: int = 1,
+             water_cost: int | None = None) -> tuple[list[tuple[int, int]], int]:
         """Dijkstra 最短路。返回 (路径含起点终点, 消耗格数)；不可达返回 ([], 0)。
 
         掩体格算障碍物（`playable()`），打烂之后（在 `gone` 里）变回可走
@@ -228,7 +244,7 @@ class GameMap:
             if d > dist.get(cur, 1 << 30):
                 continue
             for nxt in self.neighbors(cur, gone):
-                nd = d + self.cost(nxt)
+                nd = d + self.cell_cost(nxt, mult=mult, water_cost=water_cost)
                 if nd < dist.get(nxt, 1 << 30):
                     dist[nxt] = nd
                     prev[nxt] = cur
@@ -256,15 +272,16 @@ class GameMap:
         return out
 
     def move(self, start: tuple[int, int], goal: tuple[int, int], budget: int,
-             gone: Iterable[str] = ()) -> tuple[list[tuple[int, int]], int, bool]:
+             gone: Iterable[str] = (), *, mult: int = 1,
+             water_cost: int | None = None) -> tuple[list[tuple[int, int]], int, bool]:
         """按移动力走。返回 (实际路径, 实际消耗, 是否到达)。走不到就停在能到的最远处。"""
-        route, cost = self.path(start, goal, gone)
+        route, cost = self.path(start, goal, gone, mult=mult, water_cost=water_cost)
         if not route or cost <= budget:
             return route, cost, bool(route)
         walked = [start]
         used = 0
         for pos in route[1:]:
-            step = self.cost(pos)
+            step = self.cell_cost(pos, mult=mult, water_cost=water_cost)
             if used + step > budget:
                 break
             walked.append(pos)

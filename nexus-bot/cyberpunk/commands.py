@@ -46,11 +46,25 @@ SKILL_STAT: dict[str, str] = {
     "衣着与风格": "COOL",
 }
 
-# V3.0 全量技能（96 项，来自 glossary.json）叠加在上面那批旧别名之后；
-# 旧别名优先，避免破坏已经写过的手感。
+# 合并顺序（后者覆盖前者）：
+#   ① V3 全量技能（95 项，glossary.json）
+#   ② 上面那批手写别名（V3 里没有的中文习惯叫法）
+#   ③ **RED 正典 66 项**（``full.txt:6935-7139``）——最终口径
+#   ④ RED 的别名写法（Easy Mode / V3 的叫法都折到同一项，属性按 RED 算）
+#
+# ③ 放最后是「按 RED 规则算」的落地：同名技能在三套规则里属性不同时
+#   （察言观色 RED=EMP/V3=COOL、乐器演奏 RED=TECH/V3=INT、驯兽 RED=INT/V3=COOL），
+#   一律以 RED 为准。
+from . import skills as _skills  # noqa: E402
 from .names import skill_stat as _v3_skill_stat  # noqa: E402
 
 SKILL_STAT = {**_v3_skill_stat(), **SKILL_STAT}
+SKILL_STAT.update(_skills.skill_table())
+for _alias in _skills.ALIASES:
+    _stat = _skills.stat_of(_alias)
+    if _stat:
+        SKILL_STAT[_alias] = _stat
+del _alias, _stat
 
 NOTATION_RE = re.compile(r"^\s*(\d{1,2})\s*[dD]\s*(\d{1,3})\s*(?:([+-])\s*(\d{1,3}))?\s*$")
 DV_RE = re.compile(r"dv\s*=\s*(\d{1,2})", re.I)

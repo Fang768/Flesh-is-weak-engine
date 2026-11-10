@@ -116,6 +116,11 @@ def build(
         "perks": picked_perks,
     }
     apply_skill_overrides(character, skill_overrides or {})
+    # 起始资金：街头鼠辈/边缘行者口径 500 EB（full.txt:8631）。
+    # 放在 state 里，build 出来的卡只是预览，save 时才会落库。
+    from core import growth
+
+    growth.init_starting_eb(character)
     validate(character)
     return character
 
@@ -210,6 +215,7 @@ def to_character(card: Character) -> "RulesCharacter":
         stats={k: int(v) for k, v in card["stats"].items()},
         skills={k: int(v) for k, v in card.get("skills", {}).items()},
         cyber_mod=cyber_bonus.attribute_bonus(card),
+        stat_floor=cyber_bonus.stat_floor(card),
     )
 
 

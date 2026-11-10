@@ -39,8 +39,13 @@ def test_check_without_card(conn):
     assert "还没有卡" in card_flow.check("g", "u", "潜行")
 
 
-def test_easy_check_strictly_greater(conn):
-    """简易版：总数等于 DV 判失败（Interlock 平局守方胜）。"""
+def test_easy_check_ties_succeed_under_red(conn):
+    """判定号统一按 RED：静态 DV 检定「达到即成功」，平局算过。
+
+    书里「平局守方胜」（``full.txt:11583``、``:14699``）说的是**对抗检定**，
+    由 ``checks.opposed`` 用 ``>`` 处理；静态 DV 检定按 ``:11659`` 的例子取
+    「达到即成功」。两侧同一口径。
+    """
     from core import easy_roster
     from cyberpunk import easy
 
@@ -51,8 +56,8 @@ def test_easy_check_strictly_greater(conn):
     stat = easy.skill_stat(skill) or "INT"
     dv = int(card["stats"][stat]) + int(card["skills"][skill]) + 5  # natural=5 → 平局
 
-    assert card_flow.check("g1", "u1", skill, dv=dv, roller=ScriptedRoller([5])).startswith("❌")
-    assert card_flow.check("g1", "u1", skill, dv=dv, roller=ScriptedRoller([6])).startswith("✅")
+    assert card_flow.check("g1", "u1", skill, dv=dv, roller=ScriptedRoller([5])).startswith("✅")
+    assert card_flow.check("g1", "u1", skill, dv=dv + 1, roller=ScriptedRoller([5])).startswith("❌")
 
 
 def test_claim_needs_confirmation(conn):
