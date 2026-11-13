@@ -158,24 +158,36 @@ def spend_eb(card: dict, amount: int, *, reason: str = "") -> int:
 # 不到正好 500 的东西，只能买 <500 的。超奢档按 10000 起，视为无上限。
 
 #: 没有掮客时能买到的上限（「高价」档 = 100 EB）
+#: ``full.txt:579``「您可以购买 100 欧元以下的物品。」
 BROKERLESS_CAP = 100
 
+#: 掮客买得到的上限（``full.txt:583-595`` 的 FAQ）：
+#:   等级 3：低于 500（昂贵）
+#:   等级 7：低于 1000（特贵）
+#:   等级 9：低于 5000（奢侈）
+#:   等级 10：任何东西，包括超奢
+#: 前四档是「低于」，所以取开区间；10 级无上限用 ``None`` 表示。
+BROKER_TIERS = ((10, None), (9, 5000), (7, 1000), (3, 500))
 
-def broker_cap(level: int) -> int:
-    """掮客按职业等级能买到的价格上限（开区间：只能买**低于**这个数）。"""
+
+def broker_cap(level: int) -> int | None:
+    """掮客按职业等级能买到的价格上限（开区间：只能买**低于**这个数）。
+
+    10 级返回 ``None``，表示「任何东西，包括超奢」——没有上限。
+    """
     lv = int(level or 0)
-    if lv >= 9:
-        return 10000       # 午夜市场：超奢档
-    if lv >= 7:
-        return 1000        # 特贵以下
-    if lv >= 3:
-        return 500         # 昂贵以下
+    for need, cap in BROKER_TIERS:
+        if lv >= need:
+            return cap
     return BROKERLESS_CAP
 
 
 def can_buy(price: int, *, broker_level: int = 0) -> bool:
     """这个价位买不买得到（不管钱够不够，只管渠道通不通）。"""
-    return int(price or 0) < broker_cap(broker_level)
+    cap = broker_cap(broker_level)
+    if cap is None:            # 10 级掮客：无上限
+        return True
+    return int(price or 0) < cap
 
 
 #: 建卡起始资金（RED `full.txt:8631`「街鼠和边缘行者还可以额外获得 500 欧元」）。

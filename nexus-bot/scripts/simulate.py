@@ -2833,8 +2833,56 @@ async def sc_cyberweapon(s: Sim) -> None:
     expect(cw.damage_of("赛博大蛇") == "4D6", "超重型 4D6（full.txt:15017）")
     show("档位", "吸血鬼尖牙", str(cw.damage_of("吸血鬼尖牙")))
     expect(cw.damage_of("吸血鬼尖牙") == "1D6", "轻型 1D6（:10148）")
-    show("档位", "弹出式近战武器（未指定）", str(cw.damage_of("弹出式近战武器")))
-    expect(cw.damage_of("弹出式近战武器") == "2D6", "未指定按中型")
+    # 弹出式武器装的是「市面上的具体武器」（full.txt:10261-10286），
+    # 不是三个抽象档位；没挂载就没有伤害。
+    from cyberpunk import weapon_catalog as wcat
+
+    show("弹出式", "未挂载武器", str(cw.damage_of("弹出式近战武器")))
+    expect(cw.damage_of("弹出式近战武器") is None, "没指定装哪把武器 → 没有伤害")
+
+    glove = {"state": {"cyber": [{"id": "c1", "name": "弹出式近战武器", "parent": ""}],
+                       "cyber_mounts": {"弹出式近战武器": "战斗手套"}}}
+    show("弹出式", "装战斗手套", f"{cw.damage_of('弹出式近战武器', glove)}，"
+                                f"{cw.rof_of('弹出式近战武器', glove)}ROF")
+    expect(cw.damage_of("弹出式近战武器", glove) == "3d6",
+           "异种近战（战斗手套）按它自己的 3d6，FAQ :521 允许异种")
+
+    # 属性判定：不建白名单，只看 melee_class / hands
+    expect(wcat.mountable(wcat.find("战斗手套"), mount="弹出式近战武器"),
+           "异种/重型近战可装")
+    expect(not wcat.mountable(wcat.find("超重型近战武器"), mount="弹出式近战武器"),
+           "超重型近战装不了（:10261-10269 只到重型）")
+    expect(wcat.mountable(wcat.find("超重型手枪"), mount="弹出式远程武器"),
+           "单手远程可装（模板实例就是超重型手枪）")
+    expect(not wcat.mountable(wcat.find("突击步枪"), mount="弹出式远程武器"),
+           "双手远程装不了（:10280「任何单手持握」）")
+    expect(wcat.find("超重型手枪")["conceal"] is False
+           and "可藏匿" in wcat.carried(wcat.find("超重型手枪")),
+           "弹出式装上后即使通常无法藏匿的也能藏（:10265）")
+
+    # 端到端：真的走 install 一遍，确认装进去的是具体武器而不是档位词
+    from core import cyber_flow, growth
+
+    roster.save(conn, gid, "u2", roster.build(template="独狼", name="阿飞"))
+    _c = roster.get(conn, gid, "u2")
+    _c["state"] = {"eb": 50000,
+                   "cyber": [{"id": "c1", "name": "赛博手臂", "parent": ""}]}
+    roster.save(conn, gid, "u2", _c)
+    asked = cyber_flow.install(conn, gid, "u2", "安装 弹出式近战武器")
+    show("弹出式", "不说装哪把", asked.splitlines()[0])
+    expect("要装哪把武器" in asked, "不指定具体武器就反问，不瞎给默认值")
+    bad = cyber_flow.install(conn, gid, "u2", "安装 弹出式远程武器 突击步枪",
+                             roller=dice.ScriptedRoller([1, 1]))
+    show("弹出式", "双手步枪", bad.splitlines()[0])
+    expect("只手" in bad, "双手远程被属性判定拒绝（:10280）")
+    ok = cyber_flow.install(conn, gid, "u2", "安装 弹出式远程武器 超重型手枪",
+                            roller=dice.ScriptedRoller([1, 1]))
+    show("弹出式", "装超重型手枪", ok.splitlines()[0])
+    _c2 = roster.get(conn, gid, "u2")
+    show("弹出式", "面板", cyber_flow.status_text(conn, gid, "u2").splitlines()[-1])
+    expect(cw.mounts_of(_c2).get("弹出式远程武器") == "超重型手枪",
+           "卡上记的是具体武器名，不是「超重型」这种档位词")
+    expect(cw.damage_of("弹出式远程武器", _c2) == "4D6", "伤害取那把武器自己的 4D6")
 
     new_pc(["赛博大蛇", "吸血鬼尖牙"])
     best = cw.best_weapon(roster.get(conn, gid, "u1"), skill="近战武器")
@@ -2851,14 +2899,14 @@ async def sc_cyberweapon(s: Sim) -> None:
     # 自然骰序打不中，所以这里用 **脚本骰** 精确控制：
     # 攻击判定 10（+DEX6+技能 → 过闪避）、伤害 4 颗 6（4D6 上限 24）。
     C.end(conn, gid)
-    C.start(conn, gid, enemies=(("打手", 1),), roller=dice.ScriptedRoller([5] * 40))
+    C.start(conn, gid, enemies=(("打手", 1),), roller=dice.ScriptedRoller([5] * 120))
     hit = ""
     # 先攻可能让敌人先动；多给几次尝试，每次都用能命中的脚本骰
     for _ in range(6):
         fight = C.load(conn, gid)
         if fight is None or not fight.active:
             C.start(conn, gid, enemies=(("打手", 1),),
-                    roller=dice.ScriptedRoller([5] * 40))
+                    roller=dice.ScriptedRoller([5] * 120))
         text = C.attack(conn, gid, "u1", "打手", skill="近战武器",
                         roller=dice.ScriptedRoller([10, 6, 6, 6, 6, 6, 6, 6, 6]))
         if "义体武器：赛博大蛇（4D6）" in text:
@@ -2998,7 +3046,189 @@ async def sc_posthit(s: Sim) -> None:
     conn.close()
 
 
+async def sc_shop(s: Sim) -> None:
+    """商店：掮客档位、买、卖、砍价、穿护甲、夜市模式。"""
+    print("【场景 55】商店：买 / 卖 / 砍价 / 穿护甲 / 夜市")
+    from core import db, growth, roster, shop_flow
+    from cyberpunk import dice
+
+    conn = db.connect(":memory:")
+    gid = "qq:shop"
+    roster.save(conn, gid, "u1", roster.build(template="独狼", name="阿飞"))
+    card = roster.get(conn, gid, "u1")
+    growth.grant_eb(card, 20000)
+    roster.save(conn, gid, "u1", card)
+
+    shelf = shop_flow.shelf_text(conn, gid, "u1")
+    show("商店", "货架", shelf.splitlines()[0])
+    expect("中型手枪" in shelf, "货架列出商品")
+    expect("🔒" in shelf, "渠道买不到的标 🔒（没掮客只能买 <100）")
+
+    blocked = shop_flow.buy(conn, gid, "u1", "买 防弹背心")
+    show("商店", "买 500 的背心", blocked.splitlines()[0])
+    expect("买不到" in blocked, "没掮客买不到 500 欧元（full.txt:579）")
+
+    ok = shop_flow.buy(conn, gid, "u1", "买 中型手枪")
+    show("商店", "买手枪", ok.splitlines()[0])
+    expect("买了中型手枪" in ok, "50 欧元的东西买得到")
+    expect("中型手枪" in roster.get(conn, gid, "u1")["gear"], "进了装备")
+
+    # 掮客档位：9 级 <5000、10 级无限（:583-595）
+    card = roster.get(conn, gid, "u1")
+    card["state"]["broker_level"] = 9
+    roster.save(conn, gid, "u1", card)
+    at5k = shop_flow.buy(conn, gid, "u1", "买 合金装备")
+    show("商店", "9 级买 5000", at5k.splitlines()[0])
+    expect("买不到" in at5k, "9 级只能买「低于」5000（:588）")
+    card = roster.get(conn, gid, "u1")
+    card["state"]["broker_level"] = 10
+    roster.save(conn, gid, "u1", card)
+    ten = shop_flow.buy(conn, gid, "u1", "买 合金装备")
+    show("商店", "10 级买 5000", ten.splitlines()[0])
+    expect("买了合金装备" in ten, "10 级什么都能买，含超奢（:595）")
+
+    # 卖：默认原价，说「砍价」才走交易对抗（:602 / :608-611）
+    before = growth.eb(roster.get(conn, gid, "u1"))
+    sold = shop_flow.sell(conn, gid, "u1", "卖 中型手枪")
+    show("商店", "卖手枪", sold.splitlines()[0])
+    expect("原价" in sold, "默认按原价出售（:602）")
+    expect(growth.eb(roster.get(conn, gid, "u1")) == before + 50, "原价 50 到账")
+
+    card = roster.get(conn, gid, "u1")
+    card["gear"] = ["中型手枪"]
+    roster.save(conn, gid, "u1", card)
+    hag = shop_flow.sell(conn, gid, "u1", "卖 中型手枪 砍价", haggle=True,
+                         roller=dice.ScriptedRoller([1, 10]))
+    show("商店", "砍价输了", hag.splitlines()[0])
+    expect("砍价输了" in hag and "80" not in hag.split("压到")[0], "砍价输会被压价（:611）")
+
+    # 护甲：买了能穿上，且真的进规则引擎（SP）
+    armor = shop_flow.buy(conn, gid, "u1", "买 防弹背心")
+    show("商店", "买背心", armor.splitlines()[0])
+    worn = shop_flow.wear(conn, gid, "u1", "穿上 防弹背心")
+    show("护甲", "穿上", worn.splitlines()[0])
+    expect("SP 15" in worn, "防弹背心 SP15（:8530-8620）")
+    rules = roster.to_character(roster.get(conn, gid, "u1"))
+    expect(rules.armor.sp == 15, "穿着的护甲真的进了规则引擎")
+    off = shop_flow.takeoff(conn, gid, "u1")
+    show("护甲", "脱下", off)
+    expect("脱下了" in off, "随时可脱")
+
+    # 不设背包上限（主人 2026-11-13：交 DM 判断）
+    card = roster.get(conn, gid, "u1")
+    card["gear"] = [f"杂物{i}" for i in range(20)]
+    roster.save(conn, gid, "u1", card)
+    more = shop_flow.buy(conn, gid, "u1", "买 手电筒")
+    show("商店", "第 21 件", more.splitlines()[0])
+    expect("买了手电筒" in more, "没有 12 件上限，交 DM 判断")
+
+    # 库存确认接口：现在恒放行
+    verdict = await shop_flow.inventory_check(
+        roster.get(conn, gid, "u1"), shop_flow.find("手电筒"), None)
+    expect(verdict == (None, ""), "库存确认接口默认放行（留待以后约定）")
+
+    # 夜市模式（:25529）：场景写了 market 就只卖摊上的
+    m = {"categories": ["武器和护甲"], "items": ["中型手枪"]}
+    show("夜市", "今晚只卖", "、".join(m["items"]))
+    yes = shop_flow.buy(conn, gid, "u1", "买 中型手枪", market=m)
+    expect("买了中型手枪" in yes, "货架上的买得到")
+    no = shop_flow.buy(conn, gid, "u1", "买 重型手枪", market=m)
+    show("夜市", "不在摊上的", no.splitlines()[0])
+    expect("不卖" in no, "夜市只卖摊上的东西")
+
+    rolled = shop_flow.roll_market()
+    show("夜市", "掷一个夜市", "、".join(rolled["categories"]))
+    expect(len(rolled["categories"]) == 2
+           and rolled["categories"][0] != rolled["categories"][1],
+           "2d6 掷两次、相同重掷 → 两个不同品类")
+    conn.close()
+
+
+async def sc_memory(s: Sim) -> None:
+    """NPC 记忆 + DM 牌面 + 偏离提醒 + 态度锁范围。"""
+    print("【场景 56】NPC 记忆 / 牌面 / 提醒 / 态度")
+    from core import attitude, db, memory, nudge
+
+    conn = db.connect(":memory:")
+    conn.execute(
+        "INSERT INTO campaigns (id,title,status,scene,scenario,created_at,updated_at)"
+        " VALUES (1,'歌剧团','active','a1.hook','opera','x','x')")
+    conn.commit()
+    cid = 1
+
+    # ① 牌面：只放被标记的，8 条预算，悬而未决不占
+    memory.add_mark(conn, cid, scene="a1.hook", what="玩家接下了委托",
+                    weight=3, keywords=["委托", "莱茵迈耶"])
+    board = memory.board(conn, cid, "opera", "a1.hook")
+    show("牌面", "内容", board)
+    expect("玩家接下了委托" in board and "关键" in board, "重要标记进牌面并标「关键」")
+    expect("⚠" in board, "悬而未决单独显示")
+
+    for i in range(12):
+        memory.add_mark(conn, cid, scene="a1", what=f"杂事{i}",
+                        weight=1, mark_id=f"z{i}")
+    lines = [ln for ln in memory.board(conn, cid, "opera", "a1.hook").splitlines()
+             if ln.strip().startswith("·")]
+    expect(len(lines) == memory.BOARD_MARKS == 8, "牌面按 8 条预算截断")
+
+    # ② B 层：旧的不删 + 关键词召回
+    memory.add_relation(conn, cid, "rayfield", kind="promise",
+                        what="答应帮他找妹妹", keywords=["妹妹"])
+    for i in range(15):
+        memory.add_relation(conn, cid, "rayfield", kind="tell",
+                            what=f"闲聊{i}", keywords=[f"闲{i}"])
+    allrows = memory.relations_of(conn, cid, "rayfield")
+    expect(len(allrows) == 16, "人际记忆超过 10 条也不删（只靠召回）")
+    cold = memory.recall(conn, cid, "rayfield", "今天天气不错")
+    expect(all("妹妹" not in r["what"] for r in cold), "不提关键词就不翻老账")
+    warm = memory.recall(conn, cid, "rayfield", "你妹妹有消息了吗")
+    show("召回", "提到「妹妹」", "、".join(r["what"] for r in warm[-2:]))
+    expect(any("妹妹" in r["what"] for r in warm), "提到关键词能把老记忆捞回来（防健忘）")
+
+    # ③ 态度：0–10，锁范围，不参与数值
+    attitude.set_bounds(conn, cid, "clown", [0, 5])
+    for _ in range(10):
+        attitude.apply_delta(conn, cid, "clown", +1)
+    show("态度", "敌人怎么示好", f"{attitude.current(conn, cid, 'clown')}/10"
+                                f"（{attitude.band_of(attitude.current(conn, cid, 'clown'))}）")
+    expect(attitude.current(conn, cid, "clown") == 5, "敌人顶多平淡，不会友善")
+
+    attitude.set_bounds(conn, cid, "student", [3, 7])
+    attitude.apply_delta(conn, cid, "student", -10)
+    expect(attitude.current(conn, cid, "student") == 3, "中立不会特别厌恶")
+
+    old, new, crossed = attitude.apply_delta(conn, cid, "student", +1)
+    expect(crossed is False, "同档内小幅波动不触发旁白")
+
+    # ④ 偏离提醒：连续 3 次空转 → 一次；每类本场只一次
+    for _ in range(3):
+        nudge.note_offtrack(conn, cid, "a1.hook")
+    kind = nudge.should_nudge(conn, cid, "a1.hook", has_left=True)
+    show("提醒", "空转 3 次", f"触发 {kind}")
+    expect(kind == nudge.KIND_CONTENT, "还有线索没查 → 内容引导")
+    nudge.mark_nudged(conn, cid, "a1.hook", kind)
+    expect(nudge.should_nudge(conn, cid, "a1.hook", has_left=True) == "", "本场不再重复同类提醒")
+
+    for _ in range(3):
+        nudge.note_offtrack(conn, cid, "a1.hook")
+    second = nudge.should_nudge(conn, cid, "a1.hook", has_left=False)
+    show("提醒", "再来 3 次", f"触发 {second}")
+    expect(second == nudge.KIND_TIME, "内容引导用过 → 改时间压力")
+    nudge.mark_nudged(conn, cid, "a1.hook", second)
+    expect(nudge.should_nudge(conn, cid, "a1.hook", has_left=False) == "", "两类都用过就不再提醒")
+
+    # ⑤ 撞上闸门会清零
+    nudge.note_offtrack(conn, cid, "a1.hook")
+    nudge.reset_offtrack(conn, cid, "a1.hook")
+    prog = memory.load_progress(conn, cid, "a1.hook")
+    expect(prog["off_track"] == 0, "撞上剧本就清空空转计数")
+
+    conn.close()
+
+
 SCENARIOS = {
+    "memory": sc_memory,
+    "shop": sc_shop,
     "posthit": sc_posthit,
     "sandy": sc_sandy,
     "cyberweapon": sc_cyberweapon,

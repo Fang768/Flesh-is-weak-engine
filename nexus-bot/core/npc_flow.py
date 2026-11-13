@@ -25,8 +25,37 @@ SYSTEM = """你在扮演一个赛博朋克世界里的人物。
 
 
 def _scene_npcs(story_id: str, scene_id: str) -> list[str]:
+    """本场在场的 NPC key。
+
+    剧本里两种写法都认：
+
+    * ``"npcs": ["student"]``                       —— key 列表
+    * ``"npcs": [{"key": "student", "name": ...}]`` —— 内联（官方模组转写用这种）
+
+    早先只认第一种，遇到内联写法会把整个 dict 的 ``str()`` 当成 key，
+    导致 ``match()`` 永远匹配不上、NPC 对话完全失效。
+    """
     scene = story.scene(story_id, scene_id) or {}
-    return [str(k) for k in (scene.get("npcs") or [])]
+    out: list[str] = []
+    for item in scene.get("npcs") or []:
+        if isinstance(item, dict):
+            key = str(item.get("key") or item.get("id") or "").strip()
+            if key:
+                out.append(key)
+        else:
+            key = str(item or "").strip()
+            if key:
+                out.append(key)
+    return out
+
+
+def inline_npc(story_id: str, scene_id: str, key: str) -> dict | None:
+    """场景内联写的 NPC 定义（有就用场景里的，没有回退到剧本顶层）。"""
+    scene = story.scene(story_id, scene_id) or {}
+    for item in scene.get("npcs") or []:
+        if isinstance(item, dict) and str(item.get("key") or "") == key:
+            return item
+    return None
 
 
 def match(story_id: str, scene_id: str, text: str) -> tuple[str, dict] | None:
@@ -36,7 +65,8 @@ def match(story_id: str, scene_id: str, text: str) -> tuple[str, dict] | None:
         return None
     data = story.load(story_id)
     for key in _scene_npcs(story_id, scene_id):
-        npc = (data.get("npcs") or {}).get(key) or {}
+        npc = inline_npc(story_id, scene_id, key) \
+            or ((data.get("npcs") or {}).get(key) or {})
         name = str(npc.get("name") or "")
         if name and name in body:
             return key, npc
@@ -49,18 +79,50 @@ async def reply(
     text: str,
     card: dict | None = None,
     scene: dict | None = None,
+    mem: dict | None = None,
+    recalled: list[dict] | None = None,
+    tone: str = "",
 ) -> str:
-    """让 NPC 回一句。模型挂了就退回一句保底台词。"""
+    """让 NPC 回一句。模型挂了就退回一句保底台词。
+
+    ``mem`` 是 ``core/memory.load_memory`` 的记忆单位，``recalled`` 是这次
+    该想起的人际记忆（最近 10 + 关键词补召回），``tone`` 是态度的一句话说明。
+    三者都可缺省——老调用照旧能用。
+    """
     name = str(npc.get("name") or "对方")
     voice = str(npc.get("voice") or "")
     who = str((card or {}).get("name") or "一个陌生人")
     where = str((scene or {}).get("name") or "")
 
-    user = (
-        f"人物：{name}\n语气：{voice or '普通'}\n"
-        f"场景：{where}\n对方（玩家）：{who}\n"
-        f"对方说：{text}\n\n只输出这个人物的台词。"
-    )
+    # 人设：voice 管语气，prompt 管动机（决策：NPC 可以带长期人设补充）
+    persona = str(npc.get("prompt") or "")
+    knows = [str(x) for x in (npc.get("knows") or [])]
+    secret = [str(x) for x in (npc.get("secret") or [])]
+
+    blocks = [f"人物：{name}", f"语气：{voice or '普通'}"]
+    if persona:
+        blocks.append(f"人设补充：{persona}")
+    if tone:
+        blocks.append(tone)
+    if knows:
+        blocks.append("他知道的事：" + "、".join(knows))
+    if secret:
+        blocks.append("他不愿说的事（被问到时含糊带过或露出破绽）："
+                      + "、".join(secret))
+    if recalled:
+        blocks.append("他记得的事：" + "；".join(
+            str(r.get("what")) for r in recalled if r.get("what")))
+    if mem:
+        recent = [e for e in (mem.get("exchanges") or [])][-3:]
+        if recent:
+            blocks.append("刚才的对话：" + "；".join(
+                f"{e.get('who')}：{e.get('text')}" for e in recent))
+    blocks.append(f"场景：{where}")
+    blocks.append(f"对方（玩家）：{who}")
+    blocks.append(f"对方说：{text}")
+    blocks.append("只输出这个人物的台词。")
+
+    user = "\n".join(blocks)
     try:
         line = await llm.complete_text(SYSTEM, user, max_tokens=220, temperature=0.85)
     except llm.LLMError:
@@ -115,7 +177,12 @@ def looks_like_action(text: str) -> bool:
     return any(hint in body for hint in ACTION_HINTS)
 
 
-def npc_by_key(story_id: str, key: str) -> dict | None:
+def npc_by_key(story_id: str, key: str, scene_id: str = "") -> dict | None:
+    """按 key 取 NPC 定义：场景内联的优先，其次剧本顶层。"""
+    if scene_id:
+        inline = inline_npc(story_id, scene_id, key)
+        if inline is not None:
+            return inline
     data = story.load(story_id)
     npc = (data.get("npcs") or {}).get(key)
     return npc if isinstance(npc, dict) else None

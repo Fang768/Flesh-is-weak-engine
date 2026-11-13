@@ -57,7 +57,7 @@ def add_gear(conn: sqlite3.Connection, group_id: str, owner_qq: str,
     gear = list(data.get("gear") or [])
     if name not in gear:
         gear.append(name)
-    data["gear"] = gear[:12]
+    data["gear"] = gear
     conn.execute(
         "UPDATE easy_cards SET data = ?, updated_at = ?"
         " WHERE group_id = ? AND owner_qq = ?",
@@ -78,7 +78,7 @@ def remove_gear(conn: sqlite3.Connection, group_id: str, owner_qq: str,
     if not name or name not in gear:
         return False
     gear.remove(name)
-    data["gear"] = gear[:12]
+    data["gear"] = gear
     conn.execute(
         "UPDATE easy_cards SET data = ?, updated_at = ?"
         " WHERE group_id = ? AND owner_qq = ?",

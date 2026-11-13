@@ -4,18 +4,64 @@
   "premise": "洛克林增强组件公司执行工程师的女儿露西失踪了。七名女性在四个星期内从大学区消失，而委托人的代表给每人开价 2000 EB。你们是被推荐的人。",
   "scripts": {
     "opera_clown": {
-      "targets": {"split": ["pc", "vampire"], "rounds": [1, 2], "after": "nearest"},
-      "flee_if": {"round_gt": 3, "any_serious": true, "any_critical": true},
-      "allies": ["clown", "monk"],
+      "targets": {
+        "split": [
+          "pc",
+          "vampire"
+        ],
+        "rounds": [
+          1,
+          2
+        ],
+        "after": "nearest"
+      },
+      "flee_if": {
+        "round_gt": 3,
+        "any_serious": true,
+        "any_critical": true
+      },
+      "allies": [
+        "clown",
+        "monk"
+      ],
       "flee_action": "sprint",
-      "on_flee_fail": {"self_destruct": {"weapon": "穿甲手榴弹", "damage": "6D6", "note": "伪装成念珠"}}
+      "on_flee_fail": {
+        "self_destruct": {
+          "weapon": "穿甲手榴弹",
+          "damage": "6D6",
+          "note": "伪装成念珠"
+        }
+      }
     },
     "opera_monk": {
-      "targets": {"split": ["pc", "vampire"], "rounds": [1, 2], "after": "nearest"},
-      "flee_if": {"round_gt": 3, "any_serious": true, "any_critical": true},
-      "allies": ["clown", "monk"],
+      "targets": {
+        "split": [
+          "pc",
+          "vampire"
+        ],
+        "rounds": [
+          1,
+          2
+        ],
+        "after": "nearest"
+      },
+      "flee_if": {
+        "round_gt": 3,
+        "any_serious": true,
+        "any_critical": true
+      },
+      "allies": [
+        "clown",
+        "monk"
+      ],
       "flee_action": "sprint",
-      "on_flee_fail": {"self_destruct": {"weapon": "穿甲手榴弹", "damage": "6D6", "note": "伪装成水气球"}}
+      "on_flee_fail": {
+        "self_destruct": {
+          "weapon": "穿甲手榴弹",
+          "damage": "6D6",
+          "note": "伪装成水气球"
+        }
+      }
     }
   },
   "acts": [
@@ -31,27 +77,23 @@
           "npcs": [],
           "clues": [
             {
-              "id": "hook_missing",
-              "text": "四个星期，七个女人，全都在大学区消失。NCPD 没有线索。",
+              "id": "hook_seven",
+              "text": "四个星期，七名女性从大学区消失，NCPD 毫无进展。",
               "skill": "教育通识",
-              "stat": "INT",
               "dv": 13,
               "keywords": [
                 "失踪",
-                "七个人",
-                "受害者",
-                "四个星期",
-                "案子"
+                "七个",
+                "七名",
+                "四个星期"
               ]
             }
           ],
-          "gates": [
+          "gates": [],
+          "exits": [
             {
-              "id": "hook_accept",
-              "skill": "说服",
-              "dv": 15,
-              "next": "a1.students",
-              "note": "接下委托，问清细节"
+              "to": "a1.students",
+              "label": "动身去大学区，先到公交站看看"
             }
           ]
         },
@@ -72,69 +114,37 @@
           },
           "clues": [
             {
-              "id": "students_rumor",
-              "text": "学生里流传：吸血鬼自己也在为失踪案发愁，有人在后台听到他们低声讨论「特别隐蔽的东西」。",
+              "id": "students_vamp",
+              "text": "「街上是有消息说吸血鬼也同样担心那些失踪的女性。」",
               "skill": "街头智慧",
-              "stat": "COOL",
               "dv": 13,
               "keywords": [
-                "吸血鬼讨论",
-                "后台",
-                "传闻",
-                "他们也在找"
+                "吸血鬼",
+                "担心",
+                "街上有消息"
               ]
             },
             {
-              "id": "students_apply",
-              "text": "那个抱着论文的女生叫芭芭拉的学生？不，她只是替导师跑腿——她提到社科楼四楼，今晚办公室里没人。",
+              "id": "students_party",
+              "text": "「这将是本周的大事。那些吸血鬼的秀总是那么时尚。」",
               "skill": "察言观色",
-              "stat": "EMP",
               "dv": 13,
               "keywords": [
-                "办公室",
-                "社科楼",
-                "导师",
-                "论文"
-              ]
-            },
-            {
-              "id": "students_dress",
-              "text": "着装要求被反复提到：黑天鹅绒、戏剧、性感。穿得太随便可能进不去。",
-              "skill": "服饰与风格",
-              "stat": "COOL",
-              "dv": 13,
-              "keywords": [
-                "着装",
-                "衣服",
-                "黑天鹅绒",
-                "门票"
+                "派对",
+                "演出",
+                "时尚"
               ]
             }
           ],
-          "gates": [
-            {
-              "id": "guarder_check",
-              "skill": "觉察",
-              "dv": 13,
-              "next": "a1.opera",
-              "note": "留意到校外停着的保安浮空车"
-            },
-            {
-              "id": "apply_check",
-              "skill": "图书馆检索",
-              "dv": 15,
-              "next": "a2.office",
-              "note": "顺着学生的论文邮件，找到社科楼四楼的线索"
-            }
-          ],
+          "gates": [],
           "exits": [
             {
-              "to": "a2.office",
-              "label": "去社科楼四楼看看那间办公室（可选支线）"
+              "to": "a1.opera",
+              "label": "都拿到票了，进场吧"
             },
             {
-              "to": "a1.opera",
-              "label": "直接去交响乐厅，排队入场"
+              "to": "a2.office",
+              "label": "去社科楼四楼看看亨特弗的办公室"
             }
           ]
         },
@@ -142,7 +152,7 @@
           "id": "a1.opera",
           "name": "歌剧院之夜",
           "map": "opera_hall",
-          "text": "日落之后，交响乐厅门口排起长队。一辆显然风光不再的校园保安浮空车停在门外，两名保安指挥着人群。\n\n大厅里，血红色的蜡烛、人皮缝成的地毯、上百个戴着獠牙的观众。舞台上的演出正到高潮，然后——尖叫声。\n\n一个博佐帮的赛博狂徒（他们叫他「小丑」）从幕布后走出来，穿着棕色长袍的审判官和尚紧随其后。人群倒退。\n\n【战斗：小丑 + 僧侣 + 与你们人数相等的爱乐吸血鬼。前 3 轮所有检定 −4（除非你有水平阻尼降噪）。小丑与僧侣前两轮平分攻击目标；出现以下任一情况他们会试图逃跑：战斗超过 3 轮 / 其中一人重伤 / 任一到达致命伤。逃跑时用完整回合和冲刺动作；跑不掉就用最后行动引爆穿甲手榴弹自杀。】",
+          "text": "日落之后，交响乐厅门口排起长队。一辆显然风光不再的校园保安浮空车停在门外，两名保安指挥着人群。\n\n大厅里，血红色的蜡烛、人皮缝成的地毯、上百个戴着獠牙的观众。舞台上的演出正到高潮，然后——尖叫声。\n\n一个博佐帮的赛博狂徒（他们叫他「小丑」）从幕布后走出来，穿着棕色长袍的审判官和尚紧随其后。人群倒退。",
           "npcs": [
             {
               "key": "clown",
@@ -157,27 +167,18 @@
           ],
           "clues": [
             {
-              "id": "opera_faces",
-              "text": "混战里，你看见几个吸血鬼在护着观众撤退——他们不想杀人，他们只想见「主人」。",
+              "id": "opera_guards",
+              "text": "两名校园保安都装了吸血鬼的义体。",
               "skill": "觉察",
-              "stat": "INT",
-              "dv": 15,
+              "dv": 9,
               "keywords": [
-                "吸血鬼护着",
-                "撤退",
-                "他们不想打"
+                "保安",
+                "守卫",
+                "吸血鬼"
               ]
             }
           ],
-          "gates": [
-            {
-              "id": "opera_after",
-              "skill": "觉察",
-              "dv": 13,
-              "next": "a2.noodles",
-              "note": "战斗结束后，在黑暗里数出十几个正在移动的身影"
-            }
-          ],
+          "gates": [],
           "encounter": {
             "range_m": 10,
             "groups": [
@@ -231,8 +232,10 @@
               }
             ],
             "on_lose": "ending:opera_dead",
-            "note": "小丑与僧侣先互殴吸血鬼，被玩家攻击才还手；前 3 轮所有检定 −4（有水平阻尼降噪免疫）"
-          }
+            "note": "小丑与僧侣先互殴吸血鬼，被玩家攻击才还手；前 3 轮所有检定 −4（有水平阻尼降噪免疫）",
+            "on_win": "a2.noodles"
+          },
+          "exits": []
         }
       ]
     },
@@ -244,7 +247,7 @@
         {
           "id": "a2.noodles",
           "name": "拉面车接头",
-          "text": "几天后，一顿宵夜。拉面车的蒸汽后面坐着一个吸血鬼，自我介绍叫雷菲尔德。\n\n他把一个信封推过油腻的台面：「午夜钟声敲响的时候，来歌剧院见『主人』。」\n\n说完他鞠了一躬，和其他吸血鬼一起散进人群。\n\n【如果在战斗里得罪过他们，或者你表现出敌意，他们会用烟雾弹离开，只留下一张纸条。】",
+          "text": "几天后，一顿宵夜。拉面车的蒸汽后面坐着一个吸血鬼，自我介绍叫雷菲尔德。\n\n他把一个信封推过油腻的台面：「午夜钟声敲响的时候，来歌剧院见『主人』。」\n\n说完他鞠了一躬，和其他吸血鬼一起散进人群。",
           "npcs": [
             {
               "key": "rayfield",
@@ -255,31 +258,28 @@
           "clues": [
             {
               "id": "noodles_vamp",
-              "text": "雷菲尔德反复强调「我们不是怪物」——他说这话时，眼神飘向大学区的方向。",
-              "skill": "察言观色",
-              "stat": "EMP",
+              "text": "人群里那几个戴浓重眼影、露着獠牙的人，就是爱乐吸血鬼。",
+              "skill": "觉察",
               "dv": 13,
               "keywords": [
-                "他不是怪物",
-                "眼神",
-                "大学区"
+                "人群",
+                "眼影",
+                "獠牙"
               ]
             }
           ],
-          "gates": [
+          "gates": [],
+          "exits": [
             {
-              "id": "noodles_go",
-              "skill": "说服",
-              "dv": 13,
-              "next": "a2.master",
-              "note": "接下信封，答应午夜赴约"
+              "to": "a2.master",
+              "label": "约的是午夜，去歌剧院赴约"
             }
           ]
         },
         {
           "id": "a2.office",
           "name": "办公室关门时刻",
-          "text": "社科楼四楼，走廊的灯只亮了一半。办公室的门锁是老式的机械锁，门缝里透出一点屏幕的蓝光。\n\n【撬锁 DV9，或者运动 DV13 把门撞开。】\n\n办公桌、衣柜、一个小冰箱。看上去只是一个普通讲师的办公室。",
+          "text": "社科楼四楼，走廊的灯只亮了一半。办公室的门锁是老式的机械锁，门缝里透出一点屏幕的蓝光。\n\n办公桌、衣柜、一个小冰箱。看上去只是一个普通讲师的办公室。",
           "npcs": [],
           "clues": [
             {
@@ -324,12 +324,11 @@
           ],
           "gates": [
             {
-              "id": "office_enter",
+              "id": "office_lock",
               "skill": "撬锁",
               "dv": 9,
               "next": "a2.office_in",
-              "fail": "a2.office",
-              "fail_text": "锁芯发出干涩的一声，门纹丝不动。也许该换个办法。"
+              "fail": "a2.office"
             }
           ],
           "exits": [
@@ -342,16 +341,60 @@
         {
           "id": "a2.office_in",
           "name": "办公室内",
-          "text": "门开了。你站在办公室中央，手上可能已经沾了不该沾的东西。\n\n【把刚才看到的东西记进线索：照片、带血的戏服、冰箱里的人头。人头如果归还给芭芭拉·达尔，她会欠你们一个小人情。】",
+          "text": "门开了。你站在办公室中央，手上可能已经沾了不该沾的东西。",
           "npcs": [],
-          "clues": [],
-          "gates": [
+          "clues": [
             {
-              "id": "office_done",
+              "id": "office_photo",
+              "text": "办公桌上镶框的照片是芭芭拉·达尔，上面有褪色的红色唇印。",
+              "skill": "觉察",
+              "dv": 9,
+              "keywords": [
+                "照片",
+                "芭芭拉",
+                "唇印"
+              ]
+            },
+            {
+              "id": "office_costume",
+              "text": "衣柜后挂着一件小丑服和一件审判官制服，都沾着血。",
               "skill": "觉察",
               "dv": 13,
-              "next": "a2.master",
-              "note": "收拾干净，赶去午夜的约会"
+              "keywords": [
+                "衣柜",
+                "小丑服",
+                "制服",
+                "血"
+              ]
+            },
+            {
+              "id": "office_fridge",
+              "text": "迷你冰箱里有一个保存完好的人头。",
+              "skill": "觉察",
+              "dv": 13,
+              "keywords": [
+                "冰箱",
+                "人头"
+              ]
+            },
+            {
+              "id": "office_head",
+              "text": "那颗人头属于已故的肯尼思·达尔——芭芭拉·达尔的亡夫。",
+              "skill": "犯罪学",
+              "dv": 13,
+              "keywords": [
+                "人头",
+                "肯尼思",
+                "达尔",
+                "亡夫"
+              ]
+            }
+          ],
+          "gates": [],
+          "exits": [
+            {
+              "to": "a2.master",
+              "label": "看完就走，去赴午夜的约"
             }
           ]
         },
@@ -380,13 +423,11 @@
               ]
             }
           ],
-          "gates": [
+          "gates": [],
+          "exits": [
             {
-              "id": "master_go",
-              "skill": "说服",
-              "dv": 13,
-              "next": "a3.entry",
-              "note": "接下木桩，问清教堂的位置"
+              "to": "a3.entry",
+              "label": "拿上木桩，去联合教堂"
             }
           ]
         }
@@ -401,7 +442,7 @@
           "id": "a3.entry",
           "name": "联合教堂：门口",
           "map": "church_gate",
-          "text": "教堂立在战区与大学区的边界上，像一颗被凿空的牙。门上倒挂着一个十字架。\n\n台阶上散落着弹壳。门里传来柴可夫斯基的交响乐，和一种刮擦声，像有人来回踱步。\n\n【如果小丑或僧侣在上一次战斗里逃掉了，他们会守在这里。】",
+          "text": "教堂立在战区与大学区的边界上，像一颗被凿空的牙。门上倒挂着一个十字架。\n\n台阶上散落着弹壳。门里传来柴可夫斯基的交响乐，和一种刮擦声，像有人来回踱步。",
           "npcs": [],
           "clues": [
             {
@@ -513,15 +554,7 @@
             "on_lose": "ending:opera_dead",
             "note": "门口守卫按 playbook_opera.txt:94：只有幸存者守门，蠢蛋数量 = PC−2；只有僧侣→全是审判官和尚，只有小丑→全是博佐帮，都幸存→50/50，都没幸存→跳过遭遇"
           },
-          "gates": [
-            {
-              "id": "entry_go",
-              "skill": "潜行",
-              "dv": 13,
-              "next": "a3.church",
-              "note": "贴着墙摸进大厅"
-            }
-          ]
+          "gates": []
         },
         {
           "id": "a3.church",
@@ -598,21 +631,13 @@
             },
             "note": "两座固定炮塔；先接入接线盒（DV8），再黑入炮塔控制节点（DV8）；控制失败会触发黑冰反扑（ATK 6 + 1d10 vs 你的交互界面），命中才烧 2D6"
           },
-          "gates": [
-            {
-              "id": "church_turret",
-              "skill": "闪避",
-              "dv": 15,
-              "next": "a3.boss",
-              "note": "在炮塔的火力下找到掩体，突进到祭坛之后"
-            }
-          ]
+          "gates": []
         },
         {
           "id": "a3.boss",
           "name": "鲁思文勋爵",
           "map": "boss_crypt",
-          "text": "炮塔的枪声停下之后，挂毯后面走出一个高个子。黑色医疗制服，兜帽长袍，脸上一排巨大的金属尖牙把嘴角撑出锯齿状的弧线。\n\n「见证我至高无上的霸权吧，害虫们！」\n\n【Boss：鲁思文勋爵 HP50 / SP12 / 近战 18 / 闪避 16 / 金刚狼爪 3D6 / 吸血鬼尖牙 1D6。这场战斗要打到一方死透。】",
+          "text": "炮塔的枪声停下之后，挂毯后面走出一个高个子。黑色医疗制服，兜帽长袍，脸上一排巨大的金属尖牙把嘴角撑出锯齿状的弧线。\n\n「见证我至高无上的霸权吧，害虫们！」",
           "npcs": [
             {
               "key": "russwin",
@@ -638,15 +663,7 @@
             "on_lose": "ending:opera_dead",
             "note": "终局：打到一方死透"
           },
-          "gates": [
-            {
-              "id": "boss_kill",
-              "skill": "近战武器",
-              "dv": 17,
-              "next": "a3.ending",
-              "note": "把他钉在祭坛上，或者做点同样有戏剧性的事"
-            }
-          ]
+          "gates": []
         },
         {
           "id": "a3.ending",
@@ -678,22 +695,30 @@
     "clown": {
       "name": "小丑",
       "voice": "尖利、戏谑",
-      "affiliations": ["博佐帮"]
+      "affiliations": [
+        "博佐帮"
+      ]
     },
     "monk": {
       "name": "僧侣",
       "voice": "低沉、简短",
-      "affiliations": ["博佐帮"]
+      "affiliations": [
+        "博佐帮"
+      ]
     },
     "rayfield": {
       "name": "雷菲尔德",
       "voice": "礼貌、做作",
-      "affiliations": ["爱乐吸血鬼"]
+      "affiliations": [
+        "爱乐吸血鬼"
+      ]
     },
     "master": {
       "name": "主人",
       "voice": "缓慢、优雅",
-      "affiliations": ["爱乐吸血鬼"]
+      "affiliations": [
+        "爱乐吸血鬼"
+      ]
     },
     "russwin": {
       "name": "鲁思文勋爵",

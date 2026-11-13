@@ -162,14 +162,26 @@ SKILL_STAT_FALLBACK = {
 }
 
 
-async def propose(text: str, *, card: dict, scene: dict, is_easy: bool) -> Proposal:
+async def propose(text: str, *, card: dict, scene: dict, is_easy: bool,
+                  board: str = "") -> Proposal:
+    """把玩家的话翻译成一个提议动作。
+
+    ``board`` 是 DM 牌面（``core/memory.board``）：只放**被标记的**剧情要点，
+    不喂原始对话流水——跨回合不失忆，上下文又不膨胀。
+    """
     skills = allowed_skills(card, is_easy)
-    exits = [f"{sid}（{story.scene(card.get('_story', story.DEFAULT_ID), sid)['name']}）"
-             for sid in (scene.get("exits") or [])
-             if story.scene(card.get("_story", story.DEFAULT_ID), sid)]
+    story_id = card.get("_story", story.DEFAULT_ID)
+    exits = []
+    for exit_ in story.exits_of(scene):
+        target = story.scene(story_id, exit_["to"]) or {}
+        name = str(target.get("name") or exit_["to"])
+        label = exit_["label"]
+        exits.append(f"{name}（{label}）" if label else name)
+    room = f"" if not board else f"{board}\n"
     user = (
         f"地点：{scene.get('name')}——{scene.get('text')}\n"
-        f"可用技能：{'、'.join(skills) or '无'}\n"
+        + room
+        + f"可用技能：{'、'.join(skills) or '无'}\n"
         f"可去场景：{'、'.join(exits) or '无'}\n"
         f"玩家的话：{text}"
     )
@@ -202,7 +214,14 @@ def decide(
         # 模型没给技能 → 用卡上最高的三个技能试匹配闸门
         top = sorted(card.get("skills", {}), key=lambda k: -int(card["skills"][k]))[:3]
         gate = story.best_gate(story_id, scene_id, top)
-    skill = (gate or {}).get("skill") or proposal.skill
+    # 闸门认哪些技能：多技能写法（gate["skills"]）取模型给的那个（若在组内），
+    # 否则取组内第一个。这样「说服 / 交谈」都算同一道门。
+    gate_skill = ""
+    if gate:
+        allowed = story.gate_skills(gate)
+        gate_skill = (proposal.skill if proposal.skill in allowed
+                      else (allowed[0] if allowed else ""))
+    skill = gate_skill or proposal.skill
     dv = int((gate or {}).get("dv") or FALLBACK_DV)
     dm_note = ""
     if gate and proposal.dv_adjust:

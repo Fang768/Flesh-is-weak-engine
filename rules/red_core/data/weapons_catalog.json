@@ -1,0 +1,44 @@
+{
+  "_meta": {
+    "source": "rules/red_core/raw/full.txt",
+    "note": "统一武器目录：核心书远程武器表 :25935、近战类别表 :25865、异种武器表 :8430-8500。每条带 hands（要求手持数）与 category（细分类），供「能不能装进赛博手臂」这类判定按属性筛选——不建弹出式专用白名单，以后加武器只往这里加一行。",
+    "category": {
+      "远程武器": "可以射击或投掷的武器（:8166）",
+      "近战武器": "剑、斧头、棍棒、锤子等等（:8166）",
+      "异种武器": "特殊的、或不符合上述条目的近战或远程武器（:8166）"
+    }
+  },
+  "items": [
+    {"name": "中型手枪", "category": "远程武器", "skill": "手枪", "damage": "2D6", "mag": 12, "rof": 2, "hands": 1, "conceal": true, "euro": 50, "tier": "略贵", "line": 25935},
+    {"name": "重型手枪", "category": "远程武器", "skill": "手枪", "damage": "3D6", "mag": 8, "rof": 2, "hands": 1, "conceal": true, "euro": 100, "tier": "高价", "line": 25935},
+    {"name": "超重型手枪", "category": "远程武器", "skill": "手枪", "damage": "4D6", "mag": 8, "rof": 1, "hands": 1, "conceal": false, "euro": 100, "tier": "高价", "line": 25935},
+    {"name": "冲锋枪", "category": "远程武器", "skill": "手枪", "damage": "2D6", "mag": 30, "rof": 1, "hands": 1, "conceal": true, "euro": 100, "tier": "高价", "line": 25935, "autofire": 3},
+    {"name": "重型冲锋枪", "category": "远程武器", "skill": "手枪", "damage": "3D6", "mag": 40, "rof": 1, "hands": 1, "conceal": false, "euro": 100, "tier": "高价", "line": 25935, "autofire": 3},
+    {"name": "霰弹枪", "category": "远程武器", "skill": "长枪射击", "damage": "5D6", "mag": 4, "rof": 1, "hands": 2, "conceal": false, "euro": 500, "tier": "昂贵", "line": 25935},
+    {"name": "突击步枪", "category": "远程武器", "skill": "长枪射击", "damage": "5D6", "mag": 25, "rof": 1, "hands": 2, "conceal": false, "euro": 500, "tier": "昂贵", "line": 25935, "autofire": 4},
+    {"name": "狙击步枪", "category": "远程武器", "skill": "长枪射击", "damage": "5D6", "mag": 4, "rof": 1, "hands": 2, "conceal": false, "euro": 500, "tier": "昂贵", "line": 25935},
+    {"name": "弓&十字弩", "category": "远程武器", "skill": "箭术", "damage": "4D6", "mag": 0, "rof": 1, "hands": 2, "conceal": false, "euro": 100, "tier": "高价", "line": 25935},
+    {"name": "榴弹发射器", "category": "远程武器", "skill": "重型武器", "damage": "6D6", "mag": 2, "rof": 1, "hands": 2, "conceal": false, "euro": 500, "tier": "昂贵", "line": 25935},
+    {"name": "火箭筒", "category": "远程武器", "skill": "重型武器", "damage": "8D6", "mag": 1, "rof": 1, "hands": 2, "conceal": false, "euro": 500, "tier": "昂贵", "line": 25935},
+
+    {"name": "轻型近战武器", "category": "近战武器", "melee_class": "轻型", "skill": "近战武器", "example": "野战刀具，印第安手斧", "damage": "1d6", "rof": 2, "hands": 1, "conceal": true, "euro": 50, "tier": "略贵", "line": 25870},
+    {"name": "中型近战武器", "category": "近战武器", "melee_class": "中型", "skill": "近战武器", "example": "棒球棍，撬棍，弯刀", "damage": "2d6", "rof": 2, "hands": 1, "conceal": false, "euro": 50, "tier": "略贵", "line": 25876},
+    {"name": "重型近战武器", "category": "近战武器", "melee_class": "重型", "skill": "近战武器", "example": "铅管，刀剑，狼牙棒", "damage": "3d6", "rof": 2, "hands": 1, "conceal": false, "euro": 100, "tier": "高价", "line": 25881},
+    {"name": "超重型近战武器", "category": "近战武器", "melee_class": "超重型", "skill": "近战武器", "example": "电锯，大锤，直升机转叶，薙刀", "damage": "4d6", "rof": 1, "hands": 2, "conceal": false, "euro": 500, "tier": "昂贵", "line": 25886},
+
+    {"name": "气手枪", "category": "异种武器", "skill": "手枪", "damage": "2D6", "mag": 12, "rof": 2, "hands": 1, "conceal": true, "euro": 100, "tier": "高价", "line": 8434, "note": "发射漆弹（还有酸弹！）的中型手枪"},
+    {"name": "战斗手套", "category": "异种武器", "skill": "搏击", "melee_class": "重型", "damage": "3d6", "rof": 2, "hands": 1, "conceal": false, "euro": 1000, "tier": "特贵", "line": 8436, "note": "重型金属手套（臂铠），包含 3 个赛博手臂/赛博肢体的可选槽位"},
+    {"name": "镖枪", "category": "异种武器", "skill": "手枪", "damage": "4D6", "mag": 8, "rof": 1, "hands": 1, "conceal": false, "euro": 100, "tier": "高价", "line": 8442, "note": "发射非基础型箭矢的超重型手枪"},
+    {"name": "金田一03式单分子武士刀", "category": "异种武器", "skill": "近战武器", "melee_class": "超重型", "damage": "4d6", "rof": 1, "hands": 2, "conceal": false, "euro": 5000, "tier": "奢侈", "line": 8450, "note": "超重型的双手近战武器。忽视低于 SP11 的护甲"},
+    {"name": "马洛里安军火3516型手枪", "category": "异种武器", "skill": "手枪", "damage": "5D6", "mag": 8, "rof": 1, "hands": 1, "conceal": false, "euro": 10000, "tier": "超奢", "line": 8458, "note": "超高品质的超重型手枪，造成 5d6 伤害"},
+    {"name": "微波发射器", "category": "异种武器", "skill": "手枪", "damage": "4D6", "mag": 8, "rof": 1, "hands": 1, "conceal": false, "euro": 500, "tier": "昂贵", "line": 8462, "note": "能干掉赛博殖装和电子设备的超重型手枪"},
+    {"name": "高音发射器", "category": "异种武器", "skill": "手枪", "damage": "4D6", "mag": 8, "rof": 1, "hands": 1, "conceal": false, "euro": 500, "tier": "昂贵", "line": 8472, "note": "能造成耳部严重伤势的超重型手枪"},
+    {"name": "电击棍", "category": "异种武器", "skill": "近战武器", "melee_class": "中型", "damage": "2d6", "rof": 2, "hands": 1, "conceal": false, "euro": 100, "tier": "高价", "line": 8476, "note": "一款「低致命性」的中型近战武器"},
+    {"name": "电击枪", "category": "异种武器", "skill": "手枪", "damage": "3D6", "mag": 8, "rof": 2, "hands": 1, "conceal": true, "euro": 100, "tier": "高价", "line": 8480, "note": "一款「低致命性」的重型手枪"},
+    {"name": "火焰喷射器", "category": "异种武器", "skill": "重型武器", "damage": "5D6", "mag": 4, "rof": 1, "hands": 2, "conceal": false, "euro": 500, "tier": "昂贵", "line": 8446, "note": "发射燃烧弹药的霰弹枪武器，使用重武器技能开火"},
+    {"name": "宪法军火飓风突击武器", "category": "异种武器", "skill": "长枪射击", "damage": "5D6", "mag": 4, "rof": 2, "hands": 2, "conceal": false, "euro": 5000, "tier": "奢侈", "line": 8438, "note": "2ROF 的霰弹枪，需要 11+ 的体格属性才能开火"},
+    {"name": "军科牛仔U-56型榴弹发射器", "category": "异种武器", "skill": "重型武器", "damage": "6D6", "mag": 2, "rof": 2, "hands": 2, "conceal": false, "euro": 5000, "tier": "奢侈", "line": 8466, "note": "2ROF 的榴弹发射器，需要 11+ 的 BODY 才能开火"},
+    {"name": "莱茵金属EMG-86型电磁炮", "category": "异种武器", "skill": "重型武器", "damage": "5D6", "mag": 25, "rof": 1, "hands": 2, "conceal": false, "euro": 5000, "tier": "奢侈", "line": 8470, "note": "忽视低于 SP11 护甲的突击步枪，需要 11+ 的 BODY 才能开火"},
+    {"name": "浪啸军火螺旋枪", "category": "异种武器", "skill": "长枪射击", "damage": "5D6", "mag": 25, "rof": 1, "hands": 2, "conceal": false, "euro": 5000, "tier": "奢侈", "line": 8484, "note": "只能使用自动射击模式的突击步枪，需要 11+ 的 BODY 才能开火"}
+  ]
+}

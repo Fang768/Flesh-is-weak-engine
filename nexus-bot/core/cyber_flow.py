@@ -20,7 +20,7 @@ from __future__ import annotations
 import re
 import sqlite3
 
-from cyberpunk import cyber, dice, slots
+from cyberpunk import cyber, dice, slots, weapon_catalog
 
 from core import easy_roster, growth, roster
 
@@ -262,6 +262,34 @@ def install(conn: sqlite3.Connection, group_id: str, user_id: str, text: str, *,
     if card is None:
         return "你还没有角色卡，先发「建卡」或「认领」拿一张。"
 
+    # 弹出式武器装的是**市面上的具体武器**（full.txt:10261-10286），
+    # 不是「弹出式专用武器」，也不套档位表。这里把「弹出式近战武器 武士刀」
+    # 拆成 (安装位, 武器名)，能不能装交给 weapon_catalog 按属性判定。
+    mount_name = ""
+    mounted_weapon = None
+    for slot_name in ("弹出式近战武器", "弹出式远程武器"):
+        if name.startswith(slot_name):
+            rest = name[len(slot_name):].strip(" ：:，,")
+            mount_name = slot_name
+            if not rest:
+                sample = weapon_catalog.list_for(slot_name)
+                hint = (f"\n比如「安装 {slot_name} {sample[0]['name']}」。") if sample else ""
+                return (f"要装哪把武器？{slot_name}装的是市面上的具体武器"
+                        f"（full.txt:10261-10286）。可选："
+                        f"{weapon_catalog.summary(slot_name)}{hint}")
+            mounted_weapon = weapon_catalog.find(rest)
+            if mounted_weapon is None:
+                picks = weapon_catalog.search(rest, limit=5)
+                hint = ("；你要装的是：" + "、".join(p["name"] for p in picks)
+                        if picks else f"；可选：{weapon_catalog.summary(slot_name)}")
+                return f"🦾 武器目录里没有「{rest}」{hint}"
+            blocked = weapon_catalog.mount_problem(mounted_weapon, mount=slot_name)
+            if blocked:
+                return (f"🦾 装不了{mounted_weapon['name']}：{blocked}"
+                        f"\n可选：{weapon_catalog.summary(slot_name)}")
+            name = slot_name
+            break
+
     entry = cyber.hl_of(name)
     if entry is None:
         return f"没在赛博组件表里找到「{name}」{_similar(name)}"
@@ -375,6 +403,11 @@ def install(conn: sqlite3.Connection, group_id: str, user_id: str, text: str, *,
                     f"（差 {price - eb_before}）。先去挣点钱，或者换件便宜的。")
     eb_after = growth.eb(card)
     money_note = f"，付了 {price} 欧元（余额 {eb_after}）" if price else ""
+
+    # 弹出式武器：记下装的是哪把市面武器（数值用它自己的）。
+    if mounted_weapon is not None:
+        from cyberpunk import cyber_weapon as _cw
+        _cw.set_mount(card, entry["zh"], mounted_weapon["name"])
 
     if loss <= 0:
         if chip_skill:

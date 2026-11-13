@@ -158,9 +158,20 @@ def test_brokerless_cap_is_high_price_tier(conn):
 
 
 def test_broker_tier_caps_follow_profession_level():
-    # full.txt:584-585：掮客 3 级 <500、7 级 <1000
+    # full.txt:583-595：3 级 <500、7 级 <1000、9 级 <5000、10 级任何东西
     assert growth.broker_cap(1) == growth.BROKERLESS_CAP
     assert growth.broker_cap(3) == 500
     assert growth.broker_cap(5) == 500
     assert growth.broker_cap(7) == 1000
-    assert growth.broker_cap(9) == 10000
+    assert growth.broker_cap(8) == 1000
+    assert growth.broker_cap(9) == 5000
+    assert growth.broker_cap(10) is None      # 无上限
+
+
+def test_broker_level_ten_can_buy_anything():
+    """10 级掮客「您可以买到任何东西，包括超奢分类的商品」（:595）。"""
+    assert growth.can_buy(10000, broker_level=10)
+    assert growth.can_buy(999999, broker_level=10)
+    # 9 级只能买 <5000，超奢（10000）买不到
+    assert not growth.can_buy(10000, broker_level=9)
+    assert growth.can_buy(4999, broker_level=9)

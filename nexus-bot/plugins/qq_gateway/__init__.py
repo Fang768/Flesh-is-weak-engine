@@ -107,11 +107,11 @@ async def _(bot: Bot, event: GroupMessageCreateEvent):
 
         # 跑团进行中：系统操作（建卡/认领/档案/检定…）优先，其余才当成行动
         if GATE.state(gid).mode is Mode.ACTIVE:
-            if card_flow.looks_meta(text):
+            if card_flow.looks_meta(text, gid, uid):
                 reply = await card_flow.handle(gid, uid, text, force=True)
             else:
                 reply = await turn_flow.handle(gid, uid, text)
-        elif card_flow.looks_meta(text):
+        elif card_flow.looks_meta(text, gid, uid):
             # 空闲态只接系统类请求（建卡/认领/档案…），
             # 闲聊不进模型——窗口还开着，别把每句话都喂给 LLM。
             reply = await card_flow.handle(gid, uid, text)

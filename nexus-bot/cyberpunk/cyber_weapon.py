@@ -58,6 +58,21 @@ def tiers() -> dict[str, dict]:
     return dict(_data().get("melee_tiers", {}))
 
 
+#: 需要玩家指定「装的是哪一把市面武器」的义体（书 :10261-10286）。
+#: 判定与数值都取自 ``weapon_catalog`` 里那把武器自己的属性，不套档位表。
+DEPENDENT_MOUNTS = {"弹出式近战武器": "近战", "弹出式远程武器": "远程"}
+
+
+def mounted_weapon(card: dict | None, name: str) -> dict | None:
+    """弹出式武器装的那把具体武器；没指定返回 None。"""
+    if card is None or name not in DEPENDENT_MOUNTS:
+        return None
+    from . import weapon_catalog
+
+    picked = str((((card.get("state") or {}).get("cyber_mounts")) or {}).get(name) or "")
+    return weapon_catalog.find(picked) if picked else None
+
+
 def _installed(card: dict) -> list[str]:
     """已装义体名。顶层 ``cyber``（简易卡）优先，避免两处重复计数。"""
     from . import cyber_bonus
@@ -65,21 +80,28 @@ def _installed(card: dict) -> list[str]:
     return cyber_bonus.installed_names(card)
 
 
-def damage_of(name: str) -> str | None:
-    """这件义体武器的伤害骰；不是武器返回 None。"""
+def damage_of(name: str, card: dict | None = None) -> str | None:
+    """这件义体武器的伤害骰；不是武器返回 None。
+
+    弹出式近战/远程武器**装的是市面上的具体武器**（``:10261-10286``），
+    所以数值取那把武器自己的；没指定就返回 None（让上层提示去选）。
+    """
+    if name in DEPENDENT_MOUNTS:
+        mounted = mounted_weapon(card, name)
+        return str(mounted["damage"]) if mounted else None
     rule = item_rule(name)
     if rule.get("damage"):
         return str(rule["damage"])
     tier = rule.get("tier")
     if tier in TIER_DAMAGE:
         return TIER_DAMAGE[tier]
-    if tier == "依赖":
-        # 弹出式近战武器：没指定装了什么，按中型
-        return TIER_DAMAGE["中型"]
     return None
 
 
-def rof_of(name: str) -> int:
+def rof_of(name: str, card: dict | None = None) -> int:
+    if name in DEPENDENT_MOUNTS:
+        mounted = mounted_weapon(card, name)
+        return int(mounted.get("rof") or 1) if mounted else 1
     rule = item_rule(name)
     tier = rule.get("tier")
     if tier in TIER_ROF:
@@ -97,7 +119,7 @@ def weapons_on(card: dict) -> list[str]:
     """卡上装的义体武器名（按安装顺序）。"""
     table = items()
     return [name for name in _installed(card)
-            if name in table and damage_of(name)]
+            if name in table and damage_of(name, card)]
 
 
 def best_weapon(card: dict, *, skill: str = "") -> tuple[str, str] | None:
@@ -111,7 +133,7 @@ def best_weapon(card: dict, *, skill: str = "") -> tuple[str, str] | None:
         want = str(rule.get("skill") or "")
         if skill and want and want != skill:
             continue
-        dmg = damage_of(name)
+        dmg = damage_of(name, card)
         if dmg:
             picks.append((name, dmg))
     if not picks:
@@ -127,8 +149,8 @@ def damage_override(card: dict, *, skill: str = "", weapon: str = "") -> tuple[s
     """
     if weapon:
         rule = item_rule(weapon)
-        if rule and damage_of(weapon):
-            return damage_of(weapon), f"义体武器：{weapon}"
+        if rule and damage_of(weapon, card):
+            return damage_of(weapon, card), f"义体武器：{weapon}"
         return None, ""
     pick = best_weapon(card, skill=skill)
     if pick is None:
@@ -167,15 +189,21 @@ def conceal_bonus(card: dict) -> int:
 def concealed_weapons(card: dict) -> list[str]:
     """能被藏进身体里的武器。"""
     return [name for name in _installed(card)
-            if item_rule(name).get("conceal") and damage_of(name)]
+            if item_rule(name).get("conceal") and damage_of(name, card)]
 
 
 def describe(card: dict) -> list[str]:
     """给 ``/义体`` 面板：列出义体武器与藏匿。"""
     out: list[str] = []
     for name in weapons_on(card):
-        dmg = damage_of(name)
+        dmg = damage_of(name, card)
         bits = [f"{dmg}"]
+        if name in DEPENDENT_MOUNTS:
+            # 弹出式：显示装的是哪把市面武器 + 藏匿语义（:10265/:10282）
+            mounted = mounted_weapon(card, name)
+            out.append(f"{name}：{mounted['name']}（{dmg}，"
+                       f"{mounted.get('rof', 1)}ROF，可藏匿）")
+            continue
         if item_rule(name).get("conceal"):
             bits.append("可藏匿")
         out.append(f"{name}（{'，'.join(bits)}）")
@@ -183,3 +211,20 @@ def describe(card: dict) -> list[str]:
     if bonus:
         out.append(f"藏匿通道 +{bonus}")
     return out
+
+
+def mounts_of(card: dict | None) -> dict[str, str]:
+    """弹出式武器装的市面武器 ``{义体名: 武器名}``。"""
+    if card is None:
+        return {}
+    raw = (card.get("state") or {}).get("cyber_mounts") or {}
+    return {str(k): str(v) for k, v in raw.items()} if isinstance(raw, dict) else {}
+
+
+def set_mount(card: dict, name: str, weapon_name: str) -> None:
+    """记下这个弹出式位置装的是哪把武器。"""
+    state = dict(card.get("state") or {})
+    table = dict(state.get("cyber_mounts") or {})
+    table[name] = weapon_name
+    state["cyber_mounts"] = table
+    card["state"] = state

@@ -162,6 +162,52 @@ CREATE TABLE IF NOT EXISTS easy_cards (
     updated_at TEXT NOT NULL,
     PRIMARY KEY (group_id, owner_qq)
 );
+
+-- ── 记忆与牌面（2026-11-14） ─────────────────────────────────────
+-- 三层记忆（主人定）：
+--   plot_marks  剧情标记，跨 NPC、属 campaign，进 DM 牌面
+--   relations   NPC 的人际记忆（favor/promise/grudge/tell…），只在跟该 NPC 有关时读
+--   exchanges   NPC 的对话流水，滚动 5 条
+-- 旧的不删：靠 keywords 做硬检索补召回（见 core/memory.py）。
+
+CREATE TABLE IF NOT EXISTS plot_marks (
+    campaign_id INTEGER NOT NULL,
+    mark_id     TEXT NOT NULL,
+    scene       TEXT NOT NULL DEFAULT '',
+    what        TEXT NOT NULL,
+    weight      INTEGER NOT NULL DEFAULT 1,
+    keywords    TEXT NOT NULL DEFAULT '[]',
+    created_at  TEXT NOT NULL,
+    PRIMARY KEY (campaign_id, mark_id)
+);
+
+CREATE TABLE IF NOT EXISTS npc_memory (
+    campaign_id INTEGER NOT NULL,
+    npc_key     TEXT NOT NULL,
+    met         INTEGER NOT NULL DEFAULT 0,
+    -- 态度 0–10（5 平淡 / 10 友好 / 0 厌恶）；只影响对话，不参与任何检定
+    attitude    INTEGER NOT NULL DEFAULT 5,
+    -- 这个 NPC 能到的最恨与最亲，如 "[0,5]"（敌人）/"[3,7]"（中立）/"[5,10]"
+    bounds      TEXT NOT NULL DEFAULT '[0,10]',
+    relations   TEXT NOT NULL DEFAULT '[]',
+    exchanges   TEXT NOT NULL DEFAULT '[]',
+    impression  TEXT NOT NULL DEFAULT '[]',
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (campaign_id, npc_key)
+);
+
+-- 场景进度：判断玩家有没有偏离剧本（决策 D），以及提醒去重（决策 G）
+CREATE TABLE IF NOT EXISTS scene_progress (
+    campaign_id INTEGER NOT NULL,
+    scene       TEXT NOT NULL,
+    clues_found TEXT NOT NULL DEFAULT '[]',
+    npcs_talked TEXT NOT NULL DEFAULT '[]',
+    gates_passed TEXT NOT NULL DEFAULT '[]',
+    off_track   INTEGER NOT NULL DEFAULT 0,
+    nudged      TEXT NOT NULL DEFAULT '[]',
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (campaign_id, scene)
+);
 """
 
 

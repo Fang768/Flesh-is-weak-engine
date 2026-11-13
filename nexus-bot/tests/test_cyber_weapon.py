@@ -65,6 +65,10 @@ def test_every_weapon_has_a_usable_damage():
         if rule.get("grenade"):
             assert cw.damage_of(name) is None, f"{name} 不该按档位算"
             continue
+        if name in cw.DEPENDENT_MOUNTS:
+            # 弹出式装的是市面武器：没挂载就没伤害，挂载后取那把武器的
+            assert cw.damage_of(name) is None, f"{name} 未挂载不该有伤害"
+            continue
         assert rule.get("tier") or rule.get("damage"), f"{name} 没有伤害来源"
         assert cw.damage_of(name), f"{name} 算不出伤害"
 
@@ -87,10 +91,16 @@ def test_melee_weapons_use_book_tiers(name, tier, damage):
     assert cw.damage_of(name) == damage
 
 
-def test_popup_melee_defaults_to_medium():
-    """弹出式近战武器不指定具体武器时按中型 2D6。"""
+def test_popup_melee_needs_a_real_weapon():
+    """弹出式近战武器装的是市面上的具体武器；没挂载就没有伤害。
+
+    规则（``full.txt:10261-10269``）：「任何轻型，中型，或重型武器都能被安装
+    于一条赛博手臂中」——不是从三个抽象档位里挑一个。
+    """
     assert cw.item_rule("弹出式近战武器")["tier"] == "依赖"
-    assert cw.damage_of("弹出式近战武器") == "2D6"
+    assert cw.damage_of("弹出式近战武器") is None
+    mounted = {"state": {"cyber_mounts": {"弹出式近战武器": "战斗手套"}}}
+    assert cw.damage_of("弹出式近战武器", mounted) == "3d6"
 
 
 def test_shield_and_smartgrip_are_not_weapons():
@@ -113,11 +123,13 @@ def test_best_weapon_picks_highest_damage():
 
 
 def test_best_weapon_filters_by_skill():
-    card = {"state": {"cyber": ["赛博大蛇", "弹出式远程武器"]}}
+    card = {"state": {"cyber": ["赛博大蛇", "弹出式远程武器"],
+                      "cyber_mounts": {"弹出式远程武器": "超重型手枪"}}}
     melee = cw.best_weapon(card, skill="近战武器")
     ranged = cw.best_weapon(card, skill="手枪")
     assert melee[0] == "赛博大蛇"
     assert ranged[0] == "弹出式远程武器"
+    assert ranged[1] == "4D6"      # 超重型手枪自己的伤害，不是档位兜底
 
 
 def test_explicit_weapon_wins():

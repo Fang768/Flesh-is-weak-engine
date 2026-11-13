@@ -46,7 +46,7 @@ def test_turn_outputs_single_message(started, monkeypatch):
     tpl = easy.templates()[0]
     easy_roster.save(c, "g1", "u1", tpl)
 
-    async def fake_propose(text, *, card, scene, is_easy):
+    async def fake_propose(text, *, card, scene, is_easy, board=""):
         return turn.Proposal(action="move", skill="潜行", approach="摸过去", target="act1.warehouse")
 
     async def fake_narrate(outcome, *, proposal, card, story_id):

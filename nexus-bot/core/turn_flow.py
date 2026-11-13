@@ -23,13 +23,17 @@ from core import (
     hazards,
     llm,
     npc_flow,
+    memory,
     party,
     roster,
+    shop_flow,
     story,
     turn,
 )
 from core.runtime import CONN, GATE
 from core.session import Mode
+from core import attitude as attitude_mod
+from core import nudge as nudge_mod
 from cyberpunk import cyber_bonus, dice, easy
 
 
@@ -310,6 +314,210 @@ def _presence_lines(story_id: str, scene_id: str) -> list[str]:
 
 
 _ATTACK_WORDS = ("攻击", "开枪", "砍", "杀", "捅", "射", "冲上去", "动手")
+
+
+# ── NPC 记忆与态度（2026-11-14） ─────────────────────────────
+#
+# 记忆单位按「何时被读」分三层（见 core/memory.py）：
+#   A 剧情标记 → 进 DM 牌面     B 人际记忆 → 只跟这个 NPC 有关时读
+#   C 对话流水 → 滚动 5 条
+# 态度 0–10 只影响对话、**不参与任何检定**，且夹在这个 NPC 的 bounds 内。
+
+#: 判定 NPC 态度的范围（决策 E：由剧本声明或首次出场时判）。
+#: 不写死名单——剧本有 affiliations 且属于敌对帮派就按「敌人」收紧，
+#: 剧本显式写 ``attitude_bounds`` 则直接采用（作者能纠模型的判断）。
+_BOUNDS_BY_KIND = {
+    "enemy": (0, 5),      # 敌人无论怎么示好都不会友善，顶多平淡
+    "neutral": (3, 7),    # 中立不会特别厌恶也不会特别亲近
+    "friendly": (5, 10),
+}
+
+
+def npc_bounds(npc: dict) -> list[int] | None:
+    """这个 NPC 的态度范围。剧本声明优先，否则按类型给默认。"""
+    declared = npc.get("attitude_bounds")
+    if isinstance(declared, (list, tuple)) and len(declared) == 2:
+        try:
+            return [int(declared[0]), int(declared[1])]
+        except (TypeError, ValueError):
+            pass
+    kind = str(npc.get("role") or npc.get("kind") or "").strip().lower()
+    if kind in _BOUNDS_BY_KIND:
+        return list(_BOUNDS_BY_KIND[kind])
+    return None          # 交给默认 [0,10]
+
+
+#: 玩家的话里出现这些 → 算「经营关系」，给态度一点变化（决策 E：
+#: 「之前聊天的时候聊到有趣的事情作为记忆进入了 NPC 的记忆单位，则加 1 态度」）
+_RAPPORT_UP = ("谢谢", "多谢", "帮忙", "罩着", "请你喝", "敬你", "佩服", "合作")
+_RAPPORT_DOWN = ("威胁", "滚开", "蠢货", "废物", "杀了你", "骗你", "威胁你")
+
+
+def rapport_delta(text: str) -> int:
+    """这句话是示好还是结怨？返回 -1 / 0 / +1。"""
+    body = str(text or "")
+    down = any(w in body for w in _RAPPORT_DOWN)
+    up = any(w in body for w in _RAPPORT_UP)
+    if down:
+        return -1
+    if up:
+        return +1
+    return 0
+
+
+# ── 换场（玩家主动提议前往下一节） ──────────────────────────
+#
+# 官方模组《歌剧院之夜》的节奏是「玩家准备好之后主动提议换场」，
+# 原文反复出现「在准备好后，前往：发展（面条和信息）」这种引导语。
+# 所以推进不该靠「说对关键词过检定」，而该靠玩家一句「进场吧」。
+
+
+def _goto_scene(group_id: str, campaign, story_id: str, from_scene: str,
+                to_scene: str, user_id: str) -> str:
+    """把主线挪到 ``to_scene``，输出新场景的正文/过场/奖励。"""
+    target = story.scene(story_id, to_scene) or {}
+    GATE.set_scene(campaign.id, to_scene)
+    # 换场必须断掉「正在跟谁说话」的短期状态，否则上一场的学生会被带到
+    # 歌剧院继续搭话（旧 bug：`_ACTIVE` 只靠 10 分钟 TTL 过期）。
+    npc_flow.forget(group_id, user_id)
+    events.record(
+        CONN,
+        group_id=group_id,
+        kind="scene",
+        campaign_id=campaign.id,
+        summary=f"转到 {story.scene_name(story_id, to_scene)}",
+        actor=user_id,
+    )
+    lines = [f"📍 {target.get('name') or to_scene}"]
+    # 换场本身是一条剧情进度：写进牌面，否则跨回合后 DM 不知道走到哪了
+    # （实际跑真模型时发现牌面是空的，只剩「还有线索没查」）。
+    memory.add_mark(
+        CONN, campaign.id, scene=to_scene,
+        what=f"前往「{target.get('name') or to_scene}」",
+        weight=2, mark_id=f"scene:{to_scene}", keywords=[str(target.get("name") or "")])
+    if target.get("text"):
+        lines.append(str(target["text"]))
+    lines.extend(_presence_lines(story_id, to_scene))
+    reward_line = _apply_rewards(group_id, campaign, story_id, to_scene)
+    if reward_line:
+        lines.append(reward_line)
+    if target.get("ending"):
+        GATE.end(group_id)
+        end = story.ending_text(story_id, target["ending"])
+        if end:
+            lines.append(f"🏁 {end}")
+    return chr(10).join(lines)
+
+# ── 偏离提醒（决策 D / G） ──────────────────────────────────
+
+
+def _note_progress_after(campaign_id: int, story_id: str, scene_id: str,
+                         outcome) -> None:
+    """一次行动之后更新「这局走到哪了」。
+
+    撞上场景闸门 = 在剧本上 → 清空空转计数；
+    没撞上 = 一次空转 → 累加（到 3 就提醒，见 ``core/nudge.py``）。
+    """
+    try:
+        gate = story.gate_for(story_id, scene_id, outcome.skill or "")
+    except Exception:  # noqa: BLE001  判定失败不能挡住回合
+        gate = None
+    if gate:
+        nudge_mod.reset_offtrack(CONN, campaign_id, scene_id)
+        return
+    nudge_mod.note_offtrack(CONN, campaign_id, scene_id)
+
+
+async def _maybe_nudge(campaign_id: int, story_id: str, scene_id: str) -> str:
+    """空转够久 → 让 DM 委婉提一句（本场每类一次，不剧透）。
+
+    本场没有待查线索、但有出口可走时，改提示「该动身了」——
+    这正是官方模组的节奏：玩家自己提议换场，DM 只负责垫一句。
+    """
+    scene_def = story.scene(story_id, scene_id) or {}
+    left = bool(memory.unresolved(CONN, campaign_id, story_id, scene_id))
+    can_leave = bool(story.exits_of(scene_def))
+    kind = nudge_mod.should_nudge(CONN, campaign_id, scene_id,
+                                  has_left=left, can_leave=can_leave)
+    if not kind:
+        return ""
+    npc_table = story.load(story_id).get("npcs") or {}
+    npc_names = [str((npc_table.get(k) or {}).get("name") or "")
+                 for k in (scene_def.get("npcs") or [])]
+    found = set(memory.load_progress(CONN, campaign_id, scene_id).get("clues_found") or [])
+    topics = [str(c.get("skill") or "") for c in (scene_def.get("clues") or [])
+              if str(c.get("id")) not in found]
+    line = await nudge_mod.compose(CONN, campaign_id, scene_id, kind=kind,
+                                   scene_def=scene_def,
+                                   npc_names=[n for n in npc_names if n],
+                                   clue_topics=[t for t in topics if t])
+    nudge_mod.mark_nudged(CONN, campaign_id, scene_id, kind)
+    return f"💭 {line}"
+
+
+# ── 闸门副作用（决策 5：保留 on_success，只做 mark + attitude） ──
+
+
+def _apply_gate_effects(campaign_id: int, story_id: str, scene_id: str,
+                        gate: dict | None, outcome) -> None:
+    """闸门通过/失败时执行剧本声明的副作用。
+
+    **只做两件事**（主人 2026-11-14 定）：写剧情标记、调 NPC 态度。
+    不做策反、不改战斗数值——那些留给之后的模型判定。
+    """
+    if not gate:
+        return
+    passed = str(getattr(outcome, "grade", "") or "") in ("\u6210\u529f", "\u5927\u6210\u529f")
+    spec = (gate.get("on_success") if passed else gate.get("on_fail")) or {}
+    if not isinstance(spec, dict):
+        return
+
+    mark = spec.get("mark")
+    if isinstance(mark, dict) and mark.get("what"):
+        memory.add_mark(
+            CONN, campaign_id, scene=scene_id,
+            what=str(mark["what"]), weight=int(mark.get("weight") or 1),
+            keywords=[str(k) for k in (mark.get("keywords") or [])],
+            mark_id=str(mark.get("id") or ""))
+    elif isinstance(mark, str) and mark.strip():
+        memory.add_mark(CONN, campaign_id, scene=scene_id, what=mark.strip())
+
+    change = spec.get("npc_change")
+    if isinstance(change, dict):
+        for npc_key, delta in change.items():
+            try:
+                amount = int(delta if not isinstance(delta, dict)
+                             else (delta.get("delta") or 0))
+            except (TypeError, ValueError):
+                continue
+            if amount:
+                attitude_mod.apply_delta(CONN, campaign_id, str(npc_key), amount)
+
+    memory.remember_in_scene(CONN, campaign_id, scene_id, "gates_passed",
+                             str(gate.get("id") or gate.get("skill") or ""))
+
+
+async def _maybe_shift_attitude(campaign_id: int, npc_key: str,
+                                npc: dict, text: str) -> str:
+    """玩家示好/结怨 → 写一条人际记忆 + 调态度。
+
+    返回**委婉的旁白**（只在跨越档位时非空），由调用方接在 NPC 台词后面。
+    """
+    delta = rapport_delta(text)
+    if not delta:
+        return ""
+    kind = "favor" if delta > 0 else "grudge"
+    memory.add_relation(
+        CONN, campaign_id, npc_key, kind=kind,
+        what=("玩家示好：" + text[:40]) if delta > 0 else ("玩家结怨：" + text[:40]),
+        delta=delta, keywords=[str(npc.get("name") or npc_key)])
+    old, new, crossed = attitude_mod.apply_delta(CONN, campaign_id, npc_key, delta)
+    if not crossed:
+        return ""          # 同一档内的小波动不值一提
+    return await nudge_mod.compose_attitude(
+        str(npc.get("name") or npc_key),
+        attitude_mod.band_of(old), attitude_mod.band_of(new),
+        voice=str(npc.get("voice") or ""))
 
 
 def _presence_guard(group_id: str, story_id: str, scene_id: str,
@@ -621,6 +829,26 @@ async def handle(
         )
         return f"🎒 已装备「{item}」，下一场战斗生效。"
 
+    # ⓪0 商店：买/卖/穿脱护甲/夜市。数据全来自现有目录（武器 + 装备），
+    #     渠道走 growth.broker_cap，夜市看场景的 market 段。
+    #     只接管「货架上真有这件 / 身上真有这件」，戏里说「买杯酒」照常走回合。
+    _market = shop_flow.market_for(scene)
+    if shop_flow.handles(CONN, group_id, user_id, text, market=_market):
+        if combat.active(CONN, group_id) is not None:
+            return "⚔ 战斗还没结束，先打完再逛夜市。"
+        reply = await shop_flow.reply_async(CONN, group_id, user_id, text,
+                                           market=_market, scene=scene,
+                                           roller=roller)
+        events.record(
+            CONN,
+            group_id=group_id,
+            kind="note",
+            campaign_id=campaign.id,
+            summary=f"商店：{text[:16]}",
+            actor=user_id,
+        )
+        return reply
+
     # ⓪a 赛博组件安装：投人性损失（HL），不交给模型编
     #    书内页 112（rules/red_core/raw/full.txt:9834-9835）：「在角色生成以后，
     #    人性点数损失由预设数字后括号中的骰子决定。」
@@ -694,8 +922,28 @@ async def handle(
         return moved
 
     # ① 点名了在场 NPC → 对话（最高优先：跟人说话不该掷骰）
-    talked = npc_flow.match(story_id, scene_id, text)
-    if talked is None:
+    # ① 换场优先：玩家明确说「进场吧」时，不该被上文的「继续对话」吃掉。
+    #    只在**非战斗**且**目标在本场 exits 里**时生效。
+    if combat.active(CONN, group_id) is None and not any(
+            w in text for w in _ATTACK_WORDS):
+        _to = story.exit_target(text, story_id, scene_id)
+        if _to:
+            return _goto_scene(group_id, campaign, story_id, scene_id, _to, user_id)
+
+    # ② 点名了在场 NPC → 对话（最高优先：跟人说话不该掷骰）
+    #    例外：「炸小丑」「打僧侣」这种**战斗中的攻击**不算对话——
+    #    提到名字不等于在跟他说话，否则攻击会被抢走变成一句台词。
+    _in_fight = combat.active(CONN, group_id) is not None
+    _attack_like = (
+        _in_fight and (
+            combat.looks_like_attack(text)
+            or combat.looks_like_grenade(text)
+            or combat.looks_like_suppression(text)
+            or any(w in text for w in _ATTACK_WORDS)
+        )
+    )
+    talked = None if _attack_like else npc_flow.match(story_id, scene_id, text)
+    if talked is None and not _attack_like:
         # ② 没点名，但刚跟某人说着话、这句也不像动手 → 继续对话
         last = npc_flow.active_npc(group_id, user_id)
         if last and not npc_flow.looks_like_action(text):
@@ -706,7 +954,23 @@ async def handle(
     if talked is not None:
         key, npc = talked
         npc_flow.remember(group_id, user_id, key)
-        answer = await npc_flow.reply(npc=npc, text=text, card=card, scene=scene)
+        # 记忆：先见面（定一次 bounds），再取该想起的人际记忆
+        mem = memory.meet(CONN, campaign.id, key,
+                          bounds=npc_bounds(npc))
+        recalled = memory.recall(CONN, campaign.id, key, text)
+        tone = attitude_mod.tone_hint(attitude_mod.current(CONN, campaign.id, key),
+                                      str(npc.get("name") or ""))
+        answer = await npc_flow.reply(npc=npc, text=text, card=card, scene=scene,
+                                      mem=mem, recalled=recalled, tone=tone)
+        # 记流水（滚动 5 条），并把「聊过这个人」记进本场进度
+        memory.add_exchange(CONN, campaign.id, key, "玩家", text)
+        memory.add_exchange(CONN, campaign.id, key, str(npc.get("name") or key),
+                            answer.split("：", 1)[-1] if "：" in answer else answer)
+        memory.remember_in_scene(CONN, campaign.id, scene_id, "npcs_talked", key)
+        # 玩家这句话可能是在经营关系：命中关键词就给态度一点变化
+        shift = await _maybe_shift_attitude(campaign.id, key, npc, text)
+        if shift:
+            answer = f"{answer}\n（{shift}）"
         events.record(
             CONN,
             group_id=group_id,
@@ -725,6 +989,13 @@ async def handle(
         guard = _presence_guard(group_id, story_id, scene_id, text)
         if guard is not None:
             return guard
+        # ②'-1 换场：玩家自己说「都拿到票了，进场吧」。
+        #       官方模组的节奏就是「玩家准备好之后主动提议前往下一节」，
+        #       引擎只认**本场声明过的 exits**，编不出新场景。
+        moved_to = story.exit_target(text, story_id, scene_id)
+        if moved_to:
+            return _goto_scene(group_id, campaign, story_id, scene_id, moved_to,
+                               user_id)
 
     # ②'0 报距离：玩家/DM 用一句话给米数（「距离 20 米」），不消耗动作
     if fight is not None and not combat.looks_like_attack(text) \
@@ -897,8 +1168,16 @@ async def handle(
         return answer
 
     degraded = False
+    # DM 牌面：跨回合的剧情要点（只有被标记的才进来，不喂对话流水）。
+    board_text = ""
+    if campaign is not None and campaign.id:
+        try:
+            board_text = memory.board(CONN, campaign.id, story_id, scene_id)
+        except Exception:  # noqa: BLE001  牌面读不出来不能挡住这一回合
+            board_text = ""
     try:
-        proposal = await turn.propose(text, card=card, scene=scene, is_easy=is_easy)
+        proposal = await turn.propose(text, card=card, scene=scene, is_easy=is_easy,
+                                      board=board_text)
     except llm.LLMError:
         # 降级：模型挂了也要把这一回合走完（照常掷骰），只是没有旁白。
         degraded = True
@@ -982,6 +1261,10 @@ async def handle(
               "dv": outcome.dv, "dv_note": outcome.dm_note},
     )
 
+    # 偏离判定（决策 D）：撞上场景闸门 = 在剧本上；没撞上 = 一次空转。
+    # 连续 3 次空转就委婉提醒一次（内容引导 / 时间压力各一次，见 core/nudge.py）。
+    _note_progress_after(campaign.id, story_id, scene_id, outcome)
+
     lines = [outcome.program_line()]
     if outcome.dm_note:
         lines.append(f"（DM 判定：{outcome.dm_note}）")
@@ -1014,6 +1297,9 @@ async def handle(
         if target.get("text"):
             lines.append(target["text"])
         lines.extend(_presence_lines(story_id, outcome.scene_to))
+        _apply_gate_effects(campaign.id, story_id, scene_id,
+                            story.gate_for(story_id, scene_id, outcome.skill or ""),
+                            outcome)
         reward_line = _apply_rewards(group_id, campaign, story_id, outcome.scene_to)
         if reward_line:
             lines.append(reward_line)
@@ -1022,5 +1308,10 @@ async def handle(
             end = story.ending_text(story_id, target["ending"])
             if end:
                 lines.append(f"🏁 {end}")
+
+    # 提醒（决策 G）：只在玩家空转够久时插一句，本场每类一次。
+    nudge_line = await _maybe_nudge(campaign.id, story_id, scene_id)
+    if nudge_line:
+        lines.append(nudge_line)
 
     return "\n\n".join(lines)

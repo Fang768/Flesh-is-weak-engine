@@ -18,6 +18,7 @@ from typing import Any, Iterable
 
 from cyberpunk import cyber_bonus, perks as perks_mod
 from cyberpunk.characters import Character as RulesCharacter
+from cyberpunk.damage import Armor
 from cyberpunk.names import normalize_template_skill, stats_en_to_zh, to_zh
 from cyberpunk.stats import STAT_MAX, STAT_MIN, STAT_ORDER, derived
 
@@ -209,13 +210,24 @@ def to_character(card: Character) -> "RulesCharacter":
 
     ``cyber_mod`` 由义体表达成（骨肉织绕 体格+2 之类），运行时生效、
     不写死 ``card["stats"]``（避免越出 ``validate_stats``）。
+
+    ``armor`` 取角色卡上**穿着**的那套护甲（``state["armor"]``）。书里护甲是
+    一整套、不叠加（``full.txt:8530-8620``），所以只记一件；没穿就留空，
+    由战斗层用 ``DEFAULT_SP`` 兜底。
     """
+    worn = (card.get("state") or {}).get("armor") or {}
+    armor = Armor(
+        name=str(worn.get("name") or "无护甲"),
+        sp=int(worn.get("sp") or 0),
+        ev=int(worn.get("ev") or 0),
+    )
     return RulesCharacter(
         name=card["name"],
         stats={k: int(v) for k, v in card["stats"].items()},
         skills={k: int(v) for k, v in card.get("skills", {}).items()},
         cyber_mod=cyber_bonus.attribute_bonus(card),
         stat_floor=cyber_bonus.stat_floor(card),
+        armor=armor,
     )
 
 
@@ -301,7 +313,7 @@ def add_gear(conn, group_id: str, owner_qq: str, item: str) -> bool:
     conn.execute(
         "UPDATE characters SET gear = ?, updated_at = ?"
         " WHERE group_id = ? AND owner_qq = ?",
-        (json.dumps(gear[:12], ensure_ascii=False), _now(), group_id, str(owner_qq)),
+        (json.dumps(gear, ensure_ascii=False), _now(), group_id, str(owner_qq)),
     )
     conn.commit()
     return True
@@ -320,7 +332,7 @@ def remove_gear(conn, group_id: str, owner_qq: str, item: str) -> bool:
     conn.execute(
         "UPDATE characters SET gear = ?, updated_at = ?"
         " WHERE group_id = ? AND owner_qq = ?",
-        (json.dumps(gear[:12], ensure_ascii=False), _now(), group_id, str(owner_qq)),
+        (json.dumps(gear, ensure_ascii=False), _now(), group_id, str(owner_qq)),
     )
     conn.commit()
     return True

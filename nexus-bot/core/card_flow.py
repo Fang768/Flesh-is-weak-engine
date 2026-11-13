@@ -74,18 +74,30 @@ META_PATTERNS = (
     r"^/?(?:备份|导出|备份列表|备份清单|恢复|还原|backup|restore)",
     r"^(?:坠落|跳(?:下|楼|崖)|摔(?:下|下来)|电击|触电|被电|溺水|窒息|憋气|淹|燃烧|着火|中毒|下毒|毒物)",
     r"^/?(?:在场|谁在|轮到谁|队伍|小队|party)",
+    r"^/?(?:商店|货架|夜市|买什么|shop)",
+    r"^/?(?:穿上|套上|脱下|脱掉|卸甲)",
     r"^(?:确认|确定|领取|就它|换一个|换张|取消|算了|不要)",
 )
 
 
-def looks_meta(text: str) -> bool:
+def looks_meta(text: str, group_id: str = "", user_id: str = "") -> bool:
     """这句话是在跟机器人说系统操作，而不是在戏里行动？"""
     import re
 
     t = (text or "").strip()
     if not t:
         return False
-    return any(re.search(pat, t) for pat in META_PATTERNS)
+    if any(re.search(pat, t) for pat in META_PATTERNS):
+        return True
+    # 「买 中型手枪」要进商店，「买杯酒」是戏里台词 → 只有货架上真有这件
+    # （或身上真有这件要卖/要穿）才算系统操作。
+    if group_id and user_id:
+        from core import shop_flow
+
+        scene = None
+        return shop_flow.handles(CONN, group_id, user_id, t,
+                                 market=shop_flow.market_for(scene))
+    return False
 
 
 def templates_text() -> str:
@@ -233,6 +245,16 @@ def _plain_command(group_id: str, user_id: str, text: str) -> str | None:
     _back = _backup_commands(group_id, user_id, body)
     if _back is not None:
         return _back
+    # 商店：货架 / 买 / 卖 / 穿脱护甲。战斗内由 turn_flow 拦。
+    if _re.fullmatch(r"/?(?:商店|货架|夜市|买什么|shop)", body):
+        from core import shop_flow as _shop
+
+        return _shop.shelf_text(CONN, group_id, user_id)
+    if _re.match(r"^/?(?:购买|买|入手|买下|采购|出售|卖掉|卖出|卖|穿上|套上|脱下|脱掉|卸甲)",
+                 body):
+        from core import shop_flow as _shop
+
+        return _shop.reply(CONN, group_id, user_id, body)
     if _re.fullmatch(r"/?(?:义体清单|赛博组件|我的义体|改造|人性|cyberware)", body):
         from core import cyber_flow as _cy
 
