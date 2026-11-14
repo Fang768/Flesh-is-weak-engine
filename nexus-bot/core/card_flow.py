@@ -210,12 +210,12 @@ def _plain_command(group_id: str, user_id: str, text: str) -> str | None:
     m = _re.match(r"^(?:开打|fight)\s*(.*)$", body)
     if m:
         from cyberpunk import names as _n  # noqa: F401
-        from core import combat as _cbt
+        # 走 turn_flow.encounter_text：遭遇被整段跳过时也会按 on_win 推进。
+        from core import turn_flow as _tf
 
         st = GATE.state(group_id)
         camp = st.campaign
-        return _cbt.start_text(
-            CONN,
+        return _tf.encounter_text(
             group_id,
             m.group(1),
             campaign_id=camp.id if camp else None,

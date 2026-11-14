@@ -64,9 +64,17 @@ def test_settle_is_idempotent():
 
 
 def test_scene_reward_only_once(opera):
+    """定金在 a1.hook（签合同那一刻付），不在公交站。
+
+    原文 playbook_opera.txt:18「签订合同后你们每人先拿 500 EB」——
+    旧数据把定金挂在 a1.students 上，等于玩家签完合同走到公交站才拿到钱。
+    """
     c, gate, camp = opera
-    line = turn_flow._apply_rewards("g1", camp, "opera", "a1.students")
+    line = turn_flow._apply_rewards("g1", camp, "opera", "a1.hook")
     assert "500 EB" in line
+    assert turn_flow._apply_rewards("g1", camp, "opera", "a1.hook") == ""
+    assert growth.eb(_card(c)) == 500
+    # 公交站不再发钱
     assert turn_flow._apply_rewards("g1", camp, "opera", "a1.students") == ""
     assert growth.eb(_card(c)) == 500
 

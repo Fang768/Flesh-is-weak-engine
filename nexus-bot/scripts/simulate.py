@@ -791,14 +791,16 @@ async def sc_opera(s: Sim) -> None:
     expect("接入成功" in first, "先接入接线盒")
     show("a3.church", "黑入", tail)
     expect("熄火停机" in (tail or ""), "黑入停掉炮塔")
-    expect("📍 鲁思文勋爵" in (tail or ""), "炮塔清空后进 Boss")
+    expect("鲁思文" in (tail or ""), "炮塔清空后鲁思文入场（同一场，原文 :102）")
 
-    # ④ Boss：打完进尾声并收团
-    groups, mods = combat._encounter_groups(conn, gid)
-    expect(groups[0]["name"] == "鲁思文勋爵" and groups[0]["count"] == 1,
-           "Boss 固定 1 人")
-    combat.start(conn, gid, campaign_id=camp.id, scene="a3.boss",
-                 enemies=groups, modifiers=mods, roller=dice.RandomRoller())
+    # ④ Boss：同一场里的第二波，打完进尾声并收团
+    fight = combat.load(conn, gid)
+    boss = next(c for c in fight.combatants if "鲁思文" in c.name)
+    expect(combat.present(fight, boss), "炮塔停下后鲁思文立刻在场")
+    for c in fight.combatants:
+        if "炮塔" in c.name:
+            c.hp = 0
+    combat._save(conn, fight)
     conn.execute(
         "UPDATE combatants SET hp = 0, dead = 1"
         " WHERE group_id = ? AND side != 'pc'", (gid,),
@@ -845,10 +847,11 @@ async def sc_favors(s: Sim) -> None:
     old = (turn_flow.CONN, turn_flow.GATE)
     turn_flow.CONN, turn_flow.GATE = conn, gate
     try:
-        line = turn_flow._apply_rewards(gid, camp, "opera", "a1.students")
+        # 定金在 a1.hook（签合同那一刻），不在公交站（playbook_opera.txt:18）
+        line = turn_flow._apply_rewards(gid, camp, "opera", "a1.hook")
         show("定金", "结算", line)
         expect("500 EB" in line, "定金 500 EB 入账")
-        expect(turn_flow._apply_rewards(gid, camp, "opera", "a1.students") == "",
+        expect(turn_flow._apply_rewards(gid, camp, "opera", "a1.hook") == "",
                "同一场景奖励只发一次")
 
         card = easy_roster.get(conn, gid, "u1")
@@ -3226,7 +3229,72 @@ async def sc_memory(s: Sim) -> None:
     conn.close()
 
 
+async def sc_skipwin(s: Sim) -> None:
+    """跳过遭遇也要推进：a3.entry 零幸存者不再卡死。"""
+    print("【场景 57】跳过遭遇 → 按 on_win 推进（a3.entry 死路修复）")
+    from cyberpunk import easy
+
+    conn = db.connect(":memory:")
+    gid = "qq:SKIPWIN"
+    gate = Gate(conn)
+    camp = gate.start_new(gid, "歌剧院之夜", scenario="opera")
+    gate.resume(gid)
+    easy_roster.save(conn, gid, "u1", dict(easy.templates()[0]))
+    old = (turn_flow.CONN, turn_flow.GATE)
+    turn_flow.CONN, turn_flow.GATE = conn, gate
+    try:
+        def scene() -> str:
+            state = gate.state(gid)
+            return state.campaign.scene if state.campaign else ""
+
+        # ① 没人布防 → 跳过，但必须换场
+        gate.set_scene(camp.id, "a3.entry")
+        skip = turn_flow.encounter_text(gid, "", campaign_id=camp.id,
+                                        scene="a3.entry")
+        show("a3.entry", "零幸存者", skip.splitlines()[0])
+        expect("跳过" in skip, "没有幸存者时跳过遭遇")
+        expect(combat.active(conn, gid) is None, "跳过时不刷打手")
+        expect(scene() == "a3.church",
+               "跳过也按 on_win 推进（旧代码在这里把玩家卡死）")
+        expect("📍" in skip, "跳过时把新场景一起说出来")
+
+        # ② 有人布防 → 正常开打，不推进
+        gate.set_scene(camp.id, "a3.church")
+        fight = turn_flow.encounter_text(gid, "", campaign_id=camp.id,
+                                         scene="a3.church")
+        show("a3.church", "开打", fight.splitlines()[0])
+        expect(combat.active(conn, gid) is not None, "有人守就正常开打")
+        expect(scene() == "a3.church", "开打的同时不换场")
+
+        # ③ 手动「开打 打手 2」不被跳过逻辑吞掉（要在收团之前测）
+        combat.end(conn, gid)
+        gate.set_scene(camp.id, "a3.entry")
+        manual = turn_flow.encounter_text(gid, "打手 2", campaign_id=camp.id,
+                                          scene="a3.entry")
+        show("a3.entry", "开打 打手 2", manual.splitlines()[0])
+        expect(combat.active(conn, gid) is not None, "手动指定敌人照常铺场")
+        expect(scene() == "a3.entry", "手动开打不触发跳过推进")
+        combat.end(conn, gid)
+
+        # ④ 教堂打赢 → 直接进结局（两波合一）
+        gate.set_scene(camp.id, "a3.church")
+        turn_flow.encounter_text(gid, "", campaign_id=camp.id, scene="a3.church")
+        conn.execute(
+            "UPDATE combatants SET hp = 0, dead = 1"
+            " WHERE group_id = ? AND side != 'pc'", (gid,))
+        conn.execute("UPDATE combats SET active = 0 WHERE group_id = ?", (gid,))
+        conn.commit()
+        tail = turn_flow.aftermath(gid)
+        show("a3.church", "打赢", tail.splitlines()[0])
+        # a3.ending 自带 ending 字段 → 收团，所以 scene() 变空、mode 回 IDLE
+        expect("尾声" in tail and "🏁" in tail, "教堂打完直接进结局（两波合一）")
+        expect(gate.state(gid).mode is Mode.IDLE, "结局后收团")
+    finally:
+        turn_flow.CONN, turn_flow.GATE = old
+        conn.close()
+
 SCENARIOS = {
+    "skipwin": sc_skipwin,
     "memory": sc_memory,
     "shop": sc_shop,
     "posthit": sc_posthit,

@@ -47,24 +47,23 @@ def test_a3_encounters_fixed(opera):
         "opera_clown", "opera_monk"]
     assert any(str(g.get("count", "")).startswith("=pc-2") for g in entry["groups"])
 
-    expected = {
-        "a3.church": ("自动炮塔", 2, "a3.boss"),
-        "a3.boss": ("鲁思文勋爵", 1, "a3.ending"),
-    }
-    for sid, (enemy, count, on_win) in expected.items():
-        enc = data["scenes"][sid]["encounter"]
-        assert enc["groups"][0]["enemy"] == enemy
-        assert enc["groups"][0]["count"] == count
-        assert enc["on_win"] == on_win
-        assert enc["on_lose"] == "ending:opera_dead"
+    # 炮塔与鲁思文是同一场：鲁思文带 join_when，炮塔全毁才入场
+    church = data["scenes"]["a3.church"]["encounter"]
+    assert church["groups"][0]["enemy"] == "自动炮塔"
+    assert church["groups"][0]["count"] == 2
+    assert church["groups"][1]["enemy"] == "鲁思文勋爵"
+    assert church["groups"][1]["script"]["join_when"] == {"all_dead": "自动炮塔"}
+    assert church["on_win"] == "a3.ending"
+    assert church["on_lose"] == "ending:opera_dead"
+    assert "a3.boss" not in data["scenes"]
     assert data["scenes"]["a1.opera"]["encounter"]["on_lose"] == "ending:opera_dead"
 
 
 def test_win_moves_scene_and_ends(opera):
     c, gate, camp = opera
-    gate.set_scene(camp.id, "a3.boss")
+    gate.set_scene(camp.id, "a3.church")
     combat.start(
-        c, "g1", campaign_id=camp.id, scene="a3.boss",
+        c, "g1", campaign_id=camp.id, scene="a3.church",
         enemies=(("鲁思文勋爵", 1),), roller=dice.RandomRoller(),
     )
     _end_combat(c, win=True)
@@ -132,9 +131,14 @@ def test_combat_blocks_plain_checks(opera):
 def test_net_access_then_control_stops_turrets(opera):
     c, gate, camp = opera
     gate.set_scene(camp.id, "a3.church")
+    # 两波同场：炮塔 + 等炮塔全毁才入场的鲁思文（原文 :102）
     combat.start(
         c, "g1", campaign_id=camp.id, scene="a3.church",
-        enemies=(("自动炮塔", 2),), roller=dice.RandomRoller(),
+        enemies=[
+            {"name": "自动炮塔", "count": 2, "faction": "turret"},
+            {"name": "鲁思文勋爵", "count": 1, "faction": "russwin",
+             "script": {"join_when": {"all_dead": "自动炮塔"}}},
+        ], roller=dice.RandomRoller(),
     )
     first = combat.net_action(c, "g1", "u1", "接入接线盒",
                               roller=dice.ScriptedRoller([10]))
@@ -145,10 +149,17 @@ def test_net_access_then_control_stops_turrets(opera):
     second = combat.net_action(c, "g1", "u1", "切断电缆",
                                roller=dice.ScriptedRoller([10]))
     assert "熄火停机" in second
-    assert combat.active(c, "g1") is None
-    # 网关 /攻击 走的是同一个公开入口
+    # 炮塔停了**不等于**打赢：鲁思文是同一场的第二波（原文 :102）
+    fight = combat.load(c, "g1")
+    boss = next(x for x in fight.combatants if "鲁思文" in x.name)
+    assert combat.present(fight, boss), "炮塔停火后鲁思文入场"
+    assert fight.active, "鲁思文还站着，战斗没结束"
+    c.execute("UPDATE combatants SET hp = 0, dead = 1"
+              " WHERE group_id = ? AND side != 'pc'", ("g1",))
+    c.execute("UPDATE combats SET active = 0 WHERE group_id = ?", ("g1",))
+    c.commit()
     tail = turn_flow.aftermath("g1")
-    assert "📍 鲁思文勋爵" in tail
+    assert "📍 尾声：无菌走廊" in tail
 
 
 def test_hack_ignores_other_text(opera):

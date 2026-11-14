@@ -256,6 +256,33 @@ def aftermath(group_id: str) -> str:
                       state.campaign.scenario or story.DEFAULT_ID)
 
 
+def encounter_text(group_id: str, arg: str, *, campaign_id=None,
+                   scene: str = "") -> str:
+    """「开打」的统一入口：正常铺场，或按剧本条件整段跳过遭遇。
+
+    跳过也要推进。`a3.entry` 这种场景**只有 encounter、没有 exits**：
+    小丑和僧侣都没跑掉时，原文写的是「没有幸存者守门 → 跳过遭遇」，
+    但旧代码只回一句「没人登场」就结束，场景没有出口 → 玩家永久卡死。
+    这里在没铺出敌人时按 encounter.on_win 推进，和打赢同一条路径。
+    """
+    out = combat.start_text(CONN, group_id, arg, campaign_id=campaign_id,
+                            scene=scene)
+    if (arg or "").strip() or combat.active(CONN, group_id) is not None:
+        return out
+    state = GATE.state(group_id)
+    campaign = state.campaign
+    if campaign is None:
+        return out
+    story_id = campaign.scenario or story.DEFAULT_ID
+    current = scene or campaign.scene or story.first_scene(story_id)
+    enc = (story.scene(story_id, current) or {}).get("encounter") or {}
+    target = str(enc.get("on_win") or "").strip()
+    if not target or target.startswith("ending:"):
+        return out
+    moved = _goto_scene(group_id, campaign, story_id, current, target, "")
+    return f"{out}{chr(10)}{chr(10)}{moved}" if moved else out
+
+
 # ---------- 自由输入的统一确认层（战斗内外共用） ----------
 #
 # 玩家说“我躲到吧台后面”“小丑欠我人情”这类自由输入时，先判断可行性：
@@ -441,9 +468,16 @@ async def _maybe_nudge(campaign_id: int, story_id: str, scene_id: str) -> str:
                                   has_left=left, can_leave=can_leave)
     if not kind:
         return ""
+    # 场景的 npcs 有两种写法：key 列表 / 内联 dict（官方模组转写用后者）。
+    # 旧代码直接拿元素去 npc_table.get()，遇到内联写法就是
+    # `TypeError: unhashable type: 'dict'` —— 提醒一触发整条回合就炸。
     npc_table = story.load(story_id).get("npcs") or {}
-    npc_names = [str((npc_table.get(k) or {}).get("name") or "")
-                 for k in (scene_def.get("npcs") or [])]
+    npc_names: list[str] = []
+    for key in npc_flow._scene_npcs(story_id, scene_id):
+        npc = npc_flow.inline_npc(story_id, scene_id, key) or npc_table.get(key) or {}
+        name = str(npc.get("name") or "").strip()
+        if name:
+            npc_names.append(name)
     found = set(memory.load_progress(CONN, campaign_id, scene_id).get("clues_found") or [])
     topics = [str(c.get("skill") or "") for c in (scene_def.get("clues") or [])
               if str(c.get("id")) not in found]
@@ -1310,8 +1344,13 @@ async def handle(
                 lines.append(f"🏁 {end}")
 
     # 提醒（决策 G）：只在玩家空转够久时插一句，本场每类一次。
-    nudge_line = await _maybe_nudge(campaign.id, story_id, scene_id)
-    if nudge_line:
-        lines.append(nudge_line)
+    # **换场这一回合不提醒**：上面 `moved` 分支已经把场景挪走了，
+    # 这里再拿回合开始时的 `scene_id` 去评估，就会对着刚离开的场景
+    # 说「该动身了」——玩家刚进门就被催走（2026-11-14 修）。
+    # 换场本身就是进度，下一回合会在新场景上重新判断。
+    if not moved:
+        nudge_line = await _maybe_nudge(campaign.id, story_id, scene_id)
+        if nudge_line:
+            lines.append(nudge_line)
 
     return "\n\n".join(lines)

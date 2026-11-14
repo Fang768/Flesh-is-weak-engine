@@ -12,6 +12,29 @@ def conn(monkeypatch):
     c.close()
 
 
+def test_fight_goes_through_encounter_text(conn, monkeypatch):
+    """自然语言「开打」必须走 turn_flow.encounter_text，不能直连 start_text。
+
+    直连的后果：遭遇按条件整段跳过时（a3.entry 零幸存者）不推进场景，
+    玩家永久卡在那个场景里。这里用替身函数钉住调用路径。
+    """
+    from core import turn_flow
+
+    calls = {}
+
+    def fake_encounter(group_id, arg, *, campaign_id=None, scene=""):
+        calls.update(group_id=group_id, arg=arg, campaign_id=campaign_id,
+                     scene=scene)
+        return "⚔ 开打：打手"
+
+    monkeypatch.setattr(turn_flow, "encounter_text", fake_encounter)
+
+    out = card_flow._plain_command("g", "u", "开打 打手 2")
+
+    assert out == "⚔ 开打：打手"
+    assert calls.get("arg") == "打手 2", "参数没传到 encounter_text"
+
+
 def test_parse_check_plain():
     assert card_flow.parse_check_arg("潜行") == ("潜行", 15, ())
 

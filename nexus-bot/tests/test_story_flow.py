@@ -98,8 +98,8 @@ def test_opera_keeps_the_real_pick_lock_check():
 
 
 def test_opera_encounters_all_advance_on_win():
-    """三场战斗都要有 on_win，否则打完出不去。"""
-    for sid in ("a1.opera", "a3.entry", "a3.church", "a3.boss"):
+    """每场战斗都要有 on_win，否则打完出不去。"""
+    for sid in ("a1.opera", "a3.entry", "a3.church"):
         enc = (story.scene("opera", sid) or {}).get("encounter") or {}
         assert enc.get("on_win"), f"{sid} 打完没有 on_win，推不动"
 

@@ -302,15 +302,15 @@ async def _(bot: Bot, event: GroupMessageCreateEvent, arg=CommandArg()):
         return
     if not _first_time(event):
         return
-    from core import combat
+    from core import turn_flow
 
     gid = group_key(event)
     state = GATE.state(gid)
     await _send(
         bot,
         event,
-        combat.start_text(
-            CONN,
+        # 走 encounter_text：遭遇被整段跳过时也会按 on_win 推进场景。
+        turn_flow.encounter_text(
             gid,
             str(arg),
             campaign_id=state.campaign.id if state.campaign else None,

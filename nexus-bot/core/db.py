@@ -205,8 +205,23 @@ CREATE TABLE IF NOT EXISTS scene_progress (
     gates_passed TEXT NOT NULL DEFAULT '[]',
     off_track   INTEGER NOT NULL DEFAULT 0,
     nudged      TEXT NOT NULL DEFAULT '[]',
+    -- 上一场战斗的结果：''（没打过）| won | lost | withdraw
+    -- 剧情条件 battle:won 读它（engine/conditions.py 的 Battle）
+    battle_result TEXT NOT NULL DEFAULT '',
     updated_at  TEXT NOT NULL,
     PRIMARY KEY (campaign_id, scene)
+);
+
+-- ── 引擎层（2026-11-14 起） ──────────────────────────────────────
+-- 通用标记：剧本自己起名的旗标（task:office_searched / got:ticket …）。
+-- 刻意**不复用** scene_progress.gates_passed——那张表的列语义是「通过的闸门 id」，
+-- 挪用语义正是旧结构漏风的根源。条件谓词 flag:X 读这张表。
+CREATE TABLE IF NOT EXISTS campaign_flags (
+    campaign_id INTEGER NOT NULL,
+    name        TEXT NOT NULL,
+    value       TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL,
+    PRIMARY KEY (campaign_id, name)
 );
 """
 
@@ -247,6 +262,13 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
     for name, ddl in (("perks", "TEXT NOT NULL DEFAULT '[]'"), ("state", "TEXT NOT NULL DEFAULT '{}'")):
         if name not in have:
             conn.execute(f"ALTER TABLE characters ADD COLUMN {name} {ddl}")
+
+    # 场景进度补 battle_result（引擎层的 battle:won/lost 条件要读它）
+    have_sp = {row[1] for row in conn.execute("PRAGMA table_info(scene_progress)").fetchall()}
+    if "battle_result" not in have_sp:
+        conn.execute(
+            "ALTER TABLE scene_progress ADD COLUMN battle_result TEXT NOT NULL DEFAULT ''"
+        )
     conn.commit()
 
 

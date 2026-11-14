@@ -73,6 +73,10 @@
         {
           "id": "a1.hook",
           "name": "清晨的委托",
+          "rewards": {
+            "eb": 500,
+            "note": "定金（签订合同后每人先拿 500 EB，playbook_opera.txt:18）"
+          },
           "text": "天刚亮，你的一次性手机在床头震了三下。\n\n对面是莱茵迈耶先生的代表，声音像隔着一层湿布：「我客户的女儿在大学区失踪了。我们没得到多少地方当局的合作。签订合同后你们每人先拿 500 EB，找到露西·莱茵迈耶之后，无论她是什么状态，余下的 1500 EB 直接结清。」\n\n信号断了。窗外，夜之城的霓虹在雨里晕成一团。\n\n委托书上有一个地址：大学区，旧夜之城交响乐厅。今晚，爱乐吸血鬼在那里办一场演出。",
           "npcs": [],
           "clues": [
@@ -105,13 +109,14 @@
             {
               "key": "student",
               "name": "学生",
-              "voice": "叽叽喳喳、爱八卦、说一半就跑去赶车"
+              "voice": "叽叽喳喳、爱八卦、说一半就跑去赶车",
+              "knows": [
+                "心理学导师亨特弗从来不回论文邮件",
+                "亨特弗的办公室在社科楼四楼，门总是锁着",
+                "演出是本周最大的事，吸血鬼的秀很时尚"
+              ]
             }
           ],
-          "rewards": {
-            "eb": 500,
-            "note": "定金"
-          },
           "clues": [
             {
               "id": "students_vamp",
@@ -136,15 +141,38 @@
               ]
             }
           ],
+          "actions": [
+            {
+              "id": "buy_ticket",
+              "label": "按海报的链接买票（一口价）",
+              "trigger": ["买票", "购票", "门票", "海报"],
+              "steps": [
+                {"op": "charge", "eb": 50},
+                {"op": "grant", "item": "演出票"},
+                {"op": "record", "kind": "note", "text": "从海报的链接买了演出票"}
+              ]
+            },
+            {
+              "id": "enter_opera",
+              "label": "检票进场",
+              "when": {"item": "演出票"},
+              "steps": [
+                {"op": "take", "item": "演出票"},
+                {"op": "move", "to": "a1.opera"}
+              ]
+            }
+          ],
           "gates": [],
           "exits": [
             {
               "to": "a1.opera",
-              "label": "都拿到票了，进场吧"
+              "label": "都拿到票了，进场吧",
+              "when": {"item": "演出票"}
             },
             {
               "to": "a2.office",
-              "label": "去社科楼四楼看看亨特弗的办公室"
+              "label": "顺着那条论文的话聊下去，去社科楼看看",
+              "when": {"talked": {"npc": "student", "topic": "论文"}}
             }
           ]
         },
@@ -252,7 +280,24 @@
             {
               "key": "rayfield",
               "name": "雷菲尔德",
-              "voice": "礼貌、做作、像在演一出维多利亚剧"
+              "voice": "礼貌、做作、像在演一出维多利亚剧",
+              "knows": [
+                "午夜钟声敲响时，在歌剧院见「主人」",
+                "爱乐吸血鬼会在演出上露面"
+              ],
+              "secret": [
+                "他们其实在替「主人」物色能处理鲁思文的人"
+              ]
+            },
+            {
+              "key": "student",
+              "name": "学生",
+              "voice": "在草坪上边吃边聊，随口吐槽",
+              "knows": [
+                "心理学专业的论文一个都没被接受，学生都慌了",
+                "亨特弗教授从来不回论文邮件，办公室总是锁着",
+                "刚才那场派对很热闹，没听说有学生受伤"
+              ]
             }
           ],
           "clues": [
@@ -273,62 +318,28 @@
             {
               "to": "a2.master",
               "label": "约的是午夜，去歌剧院赴约"
+            },
+            {
+              "to": "a2.office",
+              "label": "顺着学生那条论文的话，去社科楼看看",
+              "when": {"talked": {"npc": "student", "topic": "论文"}}
             }
           ]
         },
         {
           "id": "a2.office",
-          "name": "办公室关门时刻",
-          "text": "社科楼四楼，走廊的灯只亮了一半。办公室的门锁是老式的机械锁，门缝里透出一点屏幕的蓝光。\n\n办公桌、衣柜、一个小冰箱。看上去只是一个普通讲师的办公室。",
+          "name": "社科楼四楼走廊",
+          "text": "社科楼四楼俯瞰着校园和附近大学区的主要街道。亨特弗教授的办公室在走廊尽头。\n\n门上贴满了便签——心理学专业的学生们留下的话，潦草、急切，程度不一的绝望。门锁着，是老式的机械锁，门缝里透出一点屏幕的蓝光。",
           "npcs": [],
-          "clues": [
-            {
-              "id": "office_photo",
-              "text": "办公桌上有一张镶框照片：芭芭拉·达尔，夜之城 54 号新闻台晚间新闻的主播。照片上有一枚褪色口红的吻痕。",
-              "skill": "觉察",
-              "stat": "INT",
-              "dv": 9,
-              "keywords": [
-                "照片",
-                "办公桌",
-                "芭芭拉",
-                "口红"
-              ]
-            },
-            {
-              "id": "office_cosplay",
-              "text": "衣柜深处挂着一套带血的小丑装，和一件审判官制服。尺码属于同一个人。",
-              "skill": "觉察",
-              "stat": "INT",
-              "dv": 13,
-              "keywords": [
-                "衣柜",
-                "小丑装",
-                "制服",
-                "带血"
-              ]
-            },
-            {
-              "id": "office_head",
-              "text": "冰箱里有一颗人头。通过犯罪学、图书馆检索或街头智慧 DV13 可以确认：这是芭芭拉·达尔的亡夫，肯尼思·达尔。",
-              "skill": "犯罪学",
-              "stat": "INT",
-              "dv": 13,
-              "keywords": [
-                "冰箱",
-                "人头",
-                "肯尼思",
-                "亡夫"
-              ]
-            }
-          ],
+          "clues": [],
           "gates": [
             {
               "id": "office_lock",
               "skill": "撬锁",
               "dv": 9,
               "next": "a2.office_in",
-              "fail": "a2.office"
+              "fail": "a2.office",
+              "note": "原文：DV9 撬锁；也可以用 DV13 运动，或持有近战武器自动成功（playbook_opera.txt:77）"
             }
           ],
           "exits": [
@@ -341,8 +352,53 @@
         {
           "id": "a2.office_in",
           "name": "办公室内",
-          "text": "门开了。你站在办公室中央，手上可能已经沾了不该沾的东西。",
+          "text": "门开了。办公桌、衣柜、一个小冰箱。看上去只是一个普通讲师的办公室——但空气里有股说不出来的甜腥味。",
           "npcs": [],
+          "actions": [
+            {
+              "id": "loot_fridge",
+              "label": "把冰箱里的东西装走",
+              "when": {"clue": "office_head"},
+              "trigger": ["装走", "带走", "拿走", "收走", "冰箱"],
+              "steps": [
+                {"op": "grant", "item": "人头", "kind": "quest"},
+                {"op": "grant", "item": "伏特加", "kind": "quest"},
+                {"op": "grant", "item": "血腥玛丽混合物", "kind": "quest"},
+                {"op": "grant", "item": "腌芦笋", "kind": "quest"},
+                {"op": "grant", "item": "磨砂玻璃", "kind": "quest"},
+                {"op": "record", "kind": "note", "text": "把冰箱里的东西都装走了（playbook_opera.txt:81）"}
+              ]
+            },
+            {
+              "id": "return_head",
+              "label": "把人头还给芭芭拉·达尔",
+              "when": {"item": "人头"},
+              "trigger": ["还给", "归还", "芭芭拉", "人头"],
+              "steps": [
+                {"op": "take", "item": "人头"},
+                {"op": "mark", "kind": "flag", "id": "favor:barbara"},
+                {"op": "record", "kind": "note", "text": "把肯尼思的头还给了芭芭拉·达尔，她欠你们一份人情"}
+              ]
+            },
+            {
+              "id": "open_fridge_muscle",
+              "label": "用运动硬掰开冰箱（DV13）",
+              "trigger": ["掰开", "强行", "运动", "冰箱"],
+              "steps": [
+                {"op": "roll", "skill": "运动", "dv": 13},
+                {"op": "reveal", "ref": "clue:office_head", "when": "success"}
+              ]
+            },
+            {
+              "id": "open_fridge_lockpick",
+              "label": "撬开冰箱的锁（DV9）",
+              "trigger": ["撬开", "撬锁", "冰箱"],
+              "steps": [
+                {"op": "roll", "skill": "撬锁", "dv": 9},
+                {"op": "reveal", "ref": "clue:office_head", "when": "success"}
+              ]
+            }
+          ],
           "clues": [
             {
               "id": "office_photo",
@@ -406,7 +462,16 @@
             {
               "key": "master",
               "name": "主人",
-              "voice": "缓慢、优雅、每个词都像在台上念台词"
+              "voice": "缓慢、优雅、每个词都像在台上念台词",
+              "knows": [
+                "鲁思文勋爵曾经是爱乐吸血鬼的一员，现在是赛博精神病",
+                "他带走了七个女人，想做「终极吸血鬼新娘」",
+                "他的巢穴在联合教堂，位于南夜城边界另一边",
+                "爱乐吸血鬼允许你们杀他，不会报复"
+              ],
+              "secret": [
+                "这次的委托本身就是爱乐吸血鬼安排的，莱茵迈耶的代表是他们的中间人"
+              ]
             }
           ],
           "clues": [
@@ -420,6 +485,17 @@
                 "允许",
                 "他没有提",
                 "主导权"
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "id": "take_stake",
+              "label": "接过主人推来的木桩",
+              "trigger": ["木桩", "接过", "拿上", "带上"],
+              "steps": [
+                {"op": "grant", "item": "木桩", "kind": "quest"},
+                {"op": "record", "kind": "note", "text": "接过主人给的削尖木桩"}
               ]
             }
           ],
@@ -560,8 +636,14 @@
           "id": "a3.church",
           "name": "教堂大厅与地下祭坛",
           "map": "church_nave",
+          "npcs": [
+            {
+              "key": "russwin",
+              "name": "鲁思文勋爵",
+              "voice": "歌剧腔、把杀人说成「艺术」、自称吸血鬼"
+            }
+          ],
           "text": "大厅里，人皮缝成的地毯，剥了皮的尸体整齐地摆在腐烂的桌子上。天花板吊着一个帮派成员，血一滴一滴落在祭坛上。\n\n右侧的大楼梯通向下层。台阶底部是两扇白色大门，上面画着红色的五芒星。\n\n推开门：十排长椅，腐烂的遗骸，祭坛上钉着一个全身转换的赛博格。第一排长椅上挂着两根电缆——电缆下是两件黑袍。\n\n你走近时，那两件黑袍站了起来，快速旋转。是两座配备突击步枪的自动炮塔。它们无法离开位置，但会一直开火。",
-          "npcs": [],
           "clues": [
             {
               "id": "church_cables",
@@ -588,9 +670,19 @@
                 "hostile_to": [
                   "pc"
                 ]
+              },
+              {
+                "enemy": "鲁思文勋爵",
+                "count": 1,
+                "faction": "russwin",
+                "label": "鲁思文勋爵",
+                "hostile_to": [
+                  "pc"
+                ],
+                "script": {"join_when": {"all_dead": "自动炮塔"}}
               }
             ],
-            "on_win": "a3.boss",
+            "on_win": "a3.ending",
             "on_lose": "ending:opera_dead",
             "net": {
               "access": {
@@ -629,40 +721,30 @@
                 }
               ]
             },
-            "note": "两座固定炮塔；先接入接线盒（DV8），再黑入炮塔控制节点（DV8）；控制失败会触发黑冰反扑（ATK 6 + 1d10 vs 你的交互界面），命中才烧 2D6"
+            "note": "两座固定炮塔；先接入接线盒（DV8），再黑入炮塔控制节点（DV8）；控制失败会触发黑冰反扑（ATK 6 + 1d10 vs 你的交互界面），命中才烧 2D6。炮塔倒下后鲁思文立刻出场（原文 :102，同一场）"
           },
-          "gates": []
-        },
-        {
-          "id": "a3.boss",
-          "name": "鲁思文勋爵",
-          "map": "boss_crypt",
-          "text": "炮塔的枪声停下之后，挂毯后面走出一个高个子。黑色医疗制服，兜帽长袍，脸上一排巨大的金属尖牙把嘴角撑出锯齿状的弧线。\n\n「见证我至高无上的霸权吧，害虫们！」",
-          "npcs": [
+          "actions": [
             {
-              "key": "russwin",
-              "name": "鲁思文勋爵",
-              "voice": "歌剧腔、把杀人说成「艺术」、自称吸血鬼"
+              "id": "stake_heart",
+              "label": "把木桩钉进鲁思文的心脏",
+              "when": {"all": [{"battle": "won"}, {"item": "木桩"}]},
+              "trigger": ["钉", "木桩", "心脏", "刺穿"],
+              "steps": [
+                {"op": "mark", "kind": "flag", "id": "done:staked"},
+                {"op": "record", "kind": "note", "text": "木桩钉进了鲁思文的心脏（playbook_opera.txt:105）"}
+              ]
+            },
+            {
+              "id": "behead",
+              "label": "斩下鲁思文的头",
+              "when": {"battle": "won"},
+              "trigger": ["斩首", "砍头", "斩下", "戏剧性"],
+              "steps": [
+                {"op": "mark", "kind": "flag", "id": "done:beheaded"},
+                {"op": "record", "kind": "note", "text": "斩下了鲁思文的头（原文允许「同样有戏剧性的事」）"}
+              ]
             }
           ],
-          "clues": [],
-          "encounter": {
-            "range_m": 8,
-            "groups": [
-              {
-                "enemy": "鲁思文勋爵",
-                "count": 1,
-                "faction": "russwin",
-                "label": "鲁思文勋爵",
-                "hostile_to": [
-                  "pc"
-                ]
-              }
-            ],
-            "on_win": "a3.ending",
-            "on_lose": "ending:opera_dead",
-            "note": "终局：打到一方死透"
-          },
           "gates": []
         },
         {
@@ -679,7 +761,9 @@
               "holder_name": "爱乐吸血鬼",
               "scope": "org",
               "org": "爱乐吸血鬼",
-              "note": "救了露西，爱乐吸血鬼欠你们一份青睐"
+              "note": "救了露西，爱乐吸血鬼欠你们一份青睐",
+              "when": {"any": [{"flag": "done:staked"},
+                               {"flag": "done:beheaded"}]}
             }
           },
           "ending": "opera_saved"

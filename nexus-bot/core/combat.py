@@ -625,12 +625,62 @@ def faction_label(combat: "Combat", side: str) -> str:
     return combat.labels.get(side) or FACTION_LABELS.get(side) or side
 
 
+
+def present(combat: "Combat", c: "Combatant") -> bool:
+    """这个敌人此刻在不在场上（增援还没到 = 不在）。
+
+    join_round：还没到轮次 = 场外。
+    join_when：条件没满足 = 场外。例如「炮塔全毁时鲁思文才出来」
+    （playbook_opera.txt:102「一旦炮塔被处理完毕…立即被…打断」）。
+    """
+    if c.side == "pc":
+        return True
+    script = c.script or {}
+    try:
+        join = int(script.get("join_round") or 1)
+    except (TypeError, ValueError):
+        join = 1
+    if combat.round < join:
+        return False
+    return join_when_ok(combat, c)
+
+
+def join_when_ok(combat: "Combat", c: "Combatant") -> bool:
+    """join_when 条件是否已经满足（不满足 = 还在场外）。
+
+    支持：{"all_dead": "自动炮塔"} —— 名字以它开头的敌人全部倒下/逃走后入场。
+    没写 join_when 就一直满足。
+    """
+    spec = (c.script or {}).get("join_when")
+    if not isinstance(spec, dict):
+        return True
+    target = str(spec.get("all_dead") or "").strip()
+    if not target:
+        return True
+    guards = [x for x in combat.combatants
+              if x is not c and x.side != "pc"
+              and x.name.startswith(target)]
+    if not guards:
+        return True          # 压根没这一批：条件视为已满足
+    return all((not x.alive) or x.escaped for x in guards)
+
+
+def pending_join(combat: "Combat") -> list:
+    """场外等着的增援（活着但还没入场）。"""
+    return [c for c in combat.combatants
+            if c.side != "pc" and c.alive and not present(combat, c)]
+
 def foes(combat: "Combat", actor: "Combatant") -> list["Combatant"]:
-    """actor 能打谁：按阵营关系表算，未声明的阵营默认敌视所有非本阵营。"""
+    """actor 能打谁：按阵营关系表算，未声明的阵营默认敌视所有非本阵营。
+
+    场外的增援不算——鲁思文没出场之前，玩家打不到他。
+    """
     allowed = combat.factions.get(actor.side)
     out = []
     for c in combat.order:
         if c is actor or not c.alive or c.side == actor.side:
+            continue
+        if c.side != "pc" and not present(combat, c):
             continue
         if allowed is None or c.side in allowed:
             out.append(c)
@@ -2040,7 +2090,31 @@ def _death_check(combat: Combat, c: Combatant, roller, lines: list[str]) -> None
             slot.action = True
 
 
+def _announce_joins(combat: Combat, lines: list[str]) -> None:
+    """刚刚入场的增援报一句——炮塔倒下、鲁思文走出来的那一刻。"""
+    for c in combat.combatants:
+        if c.side == "pc" or not c.alive:
+            continue
+        script = c.script or {}
+        if script.get("_joined"):
+            continue
+        if not present(combat, c):
+            continue
+        # 只有**靠条件/轮次延迟入场**的才播报，开战就在场的不报
+        if not (script.get("join_when") or script.get("join_round")):
+            continue
+        script["_joined"] = True
+        c.script = script
+        lines.append(f"⚑ {c.name} 登场了。")
+
+
 def _check_over(combat: Combat, lines: list[str]) -> None:
+    _announce_joins(combat, lines)
+    # 敌人全灭，但还有增援在场外等着（join_round 没到 / 条件没满足）
+    # → 不结束。原文里炮塔刚被处理完鲁思文就出现，中间没有重新部署。
+    if not combat.enemies and pending_join(combat):
+        lines.append("⚑ 场面安静了一瞬，但还没结束。")
+        return
     if not combat.enemies:
         combat.active = False
         if any(c.escaped for c in combat.combatants):
@@ -2285,9 +2359,10 @@ def _pick_target(combat: Combat, enemy: Combatant, targets: list[Combatant],
 def _enemy_turn(conn, combat: Combat, enemy: Combatant, roller,
                 lines: list[str]) -> None:
     script = enemy.script or {}
-    join = int(script.get("join_round") or 1)
-    if combat.round < join:
-        lines.append(f"· {enemy.name} 还在场外（第 {join} 轮才加入）。")
+    if not present(combat, enemy):
+        join = int(script.get("join_round") or 1)
+        why = f"第 {join} 轮才加入" if combat.round < join else "还在等时机"
+        lines.append(f"· {enemy.name} 还在场外（{why}）。")
         return
     if _should_flee(combat, enemy, script):
         if _flee(conn, combat, enemy, script, roller, lines):
@@ -3970,6 +4045,9 @@ def start_text(conn, group_id: str, arg: str, *, campaign_id=None,
                 tip = f"（{note}）" if note else ""
                 return f"🚪 这次遭遇没有人登场，直接跳过{tip}。"
     if groups is None:
+        # 手动「开打 打手 2」：清掉上一场遭遇留下的 note，否则炮塔的
+        # 说明会挂到随便刷出来的打手头上（旧 bug）。
+        _encounter_meta.pop(group_id, None)
         name, count = parse_enemy_arg(arg)
         groups = ({"name": name, "count": count, "faction": "enemy"},)
     groups = [
