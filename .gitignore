@@ -38,6 +38,9 @@ nexus-backup-*/
 backups/
 *.bak
 
+# ── 临时归档（按日期分目录的施工快照，不入库）──────────────
+_archive/
+
 # ── 规则书原件 / 切图 / 全文 / OCR / 整理稿：版权内容，不入库 ──
 rules/_pages/
 *.pdf
